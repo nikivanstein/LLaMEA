@@ -30,13 +30,21 @@ LLaMEA (Large Language Model Evolutionary Algorithm) is an innovative framework 
 
 ### Installation
 
+It is the easiest to use LLaMEA from the pypi package.
+
+```bash
+  pip install llamea
+```
+
+You can also install the package from source usint Poetry.
+
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourgithub/llamea.git
+   git clone https://github.com/nikivanstein/LLaMEA.git
    ```
-2. Install the required Python packages:
+2. Install the required dependencies via Poetry:
    ```bash
-   pip install -r requirements.txt
+   poetry install
    ```
 
 ### Setting Up Your Environment
@@ -58,7 +66,8 @@ LLaMEA (Large Language Model Evolutionary Algorithm) is an innovative framework 
     # Define your evaluation function
     def your_evaluation_function(solution):
         # Implementation of your function
-        pass
+        # return feedback, quality score, error information
+        return "feedback for LLM", 0.1, ""
 
     # Initialize LLaMEA with your API key and other parameters
     optimizer = LLaMEA(f=your_evaluation_function, api_key="your_api_key_here")
@@ -72,7 +81,7 @@ LLaMEA (Large Language Model Evolutionary Algorithm) is an innovative framework 
 
 Contributions to LLaMEA are welcome! Here are a few ways you can help:
 
-- **Report Bugs**: Use [GitHub Issues](https://github.com/yourgithub/llamea/issues) to report bugs.
+- **Report Bugs**: Use [GitHub Issues](https://github.com/nikivanstein/LLaMEA/issues) to report bugs.
 - **Feature Requests**: Suggest new features or improvements.
 - **Pull Requests**: Submit PRs for bug fixes or feature additions.
 

@@ -5,7 +5,7 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 import re
 
 import numpy as np
-from openai import OpenAI
+import openai
 
 from .loggers import ExperimentLogger
 from .utils import NoCodeException
@@ -44,7 +44,7 @@ class LLaMEA:
             budget (int): The number of generations to run the evolutionary algorithm.
             model (str): The model identifier from OpenAI to be used.
         """
-        self.client = OpenAI(api_key=api_key)
+        self.client = openai.OpenAI(api_key=api_key)
         self.api_key = api_key
         self.model = model
         self.f = f  # evaluation function, provides a string as feedback, a numerical value (higher is better), and a possible error string.

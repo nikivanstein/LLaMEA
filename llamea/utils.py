@@ -1,5 +1,4 @@
 import numpy as np
-
 from ioh import LogInfo, logger
 
 
