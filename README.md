@@ -1,17 +1,33 @@
 <p align="center">
-  <img src="logo.png" alt="LLaMEA Logo" width="200"/>
+  <img src="logo.png" alt="LLaMEA light mode image" style="display: none;"/>
+  <img src="logo-dark.png" alt="LLaMEA dark mode image" style="display: none;"/>
+
+  <script>
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.querySelector('img[alt="LLaMEA dark mode image"]').style.display = 'block';
+      } else {
+          document.querySelector('img[alt="LLaMEA light mode image"]').style.display = 'block';
+      }
+  </script>
 </p>
 
 <h1 align="center">LLaMEA: Large Language Model Evolutionary Algorithm</h1>
 
 <p align="center">
   <a href="https://pypi.org/project/llamea/">
-    <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="20">
+    <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="18">
   </a>
   <a href="https://codecov.io/gh/nikivanstein/LLaMEA" > 
     <img src="https://codecov.io/gh/nikivanstein/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
   </a>
 </p>
+
+## Table of Contents
+- [Introduction](#introduction)
+- [Installation](#installation)
+- [Contributing](#contributing)
+- [Citation](#citation)
+- [License](#license)
 
 ## Introduction
 
@@ -19,10 +35,15 @@ LLaMEA (Large Language Model Evolutionary Algorithm) is an innovative framework 
 
 ## Features
 
+<p align="center">
+  <img src="framework.png" alt="LLaMEA framework" style="width:100%;"/>
+</p>
+
 - **Automated Algorithm Generation**: Automatically generates and refines algorithms using GPT models.
 - **Performance Evaluation**: Integrates with the IOHexperimenter for real-time performance feedback, guiding the evolutionary process to generate metaheuristic optimization algorithms.
 - **Customizable Evolution Strategies**: Supports configuration of evolutionary strategies to explore algorithmic design spaces effectively.
 - **Extensible and Modular**: Designed to be flexible, allowing users to integrate other models and evaluation tools.
+
 
 ## Getting Started
 
@@ -39,18 +60,19 @@ It is the easiest to use LLaMEA from the pypi package.
   pip install llamea
 ```
 
-You can also install the package from source usint Poetry.
+You can also install the package from source using Poetry.
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/nikivanstein/LLaMEA.git
+   cd LLaMEA
    ```
 2. Install the required dependencies via Poetry:
    ```bash
    poetry install
    ```
 
-### Setting Up Your Environment
+### How to use
 
 1. Set up an OpenAI API key:
    - Obtain an API key from [OpenAI](https://openai.com/).
@@ -92,7 +114,7 @@ Please refer to CONTRIBUTING.md for more details on contributing guidelines.
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the [MIT](https://choosealicense.com/licenses/mit/) License. See `LICENSE` for more information.
 
 
 ## Citation
