@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="logo-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="logo.png">
-    <img alt="Shows the LLaMEA logo." src="logo.png" style="width:200px;">
+    <img alt="Shows the LLaMEA logo." src="logo.png" width="200px">
   </picture>
 </p>
 
