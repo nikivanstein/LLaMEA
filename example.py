@@ -2,7 +2,7 @@ import os
 import numpy as np
 from ioh import get_problem, logger
 import re
-from llamea import aoc_logger, correct_aoc, OverBudgetException
+from misc import aoc_logger, correct_aoc, OverBudgetException
 from llamea import LLaMEA
 
 # Execution code starts here
