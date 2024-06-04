@@ -2,9 +2,9 @@
 """
 import openai
 
+
 class LLMmanager:
-    """LLM manager, currently only supports ChatGPT models.
-    """
+    """LLM manager, currently only supports ChatGPT models."""
 
     def __init__(self, api_key, model="gpt-4-turbo"):
         """Initialize the LLM manager with an api key and model name.

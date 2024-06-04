@@ -6,9 +6,9 @@ import re
 
 import numpy as np
 
+from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException
-from .llm import LLMmanager
 
 
 class LLaMEA:
@@ -152,9 +152,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             Exception: Captures and logs any other exceptions that occur during the interaction.
         """
 
-        response = self.client.chat(
-            session_messages
-        )
+        response = self.client.chat(session_messages)
         message = response.choices[0].message.content
         if self.log:
             self.logger.log_conversation(message)
