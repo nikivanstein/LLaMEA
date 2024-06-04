@@ -8,6 +8,9 @@
   <a href="https://pypi.org/project/llamea/">
     <img src="https://badge.fury.io/py/llamea.svg" alt="PyPI version" height="20">
   </a>
+  <a href="https://codecov.io/gh/nikivanstein/LLaMEA" > 
+    <img src="https://codecov.io/gh/nikivanstein/LLaMEA/graph/badge.svg?token=VKCNPWVBNM"/> 
+  </a>
 </p>
 
 ## Introduction
@@ -110,3 +113,10 @@ If you use LLaMEA in your research, please consider citing the associated paper:
 ---
 
 For more details, please refer to the documentation and tutorials available in the repository.
+
+---
+
+CodeCov test coverage
+
+<img src="https://codecov.io/gh/nikivanstein/LLaMEA/graphs/sunburst.svg?token=VKCNPWVBNM"/> 
+
