@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "llamea"
-version = "0.1.0"
+version = "0.9.1"
 description = ""
 authors = ["Niki van Stein <n.van.stein@liacs.leidenuniv.nl>"]
 readme = "README.md"
@@ -9,7 +9,7 @@ homepage = "https://github.com/nikivanstein/LLaMEA"
 repository = "https://github.com/nikivanstein/LLaMEA"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 numpy = "1.24.4"
 ioh = "0.3.14"
 scikit-learn = "1.3.0"

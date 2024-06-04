@@ -5,10 +5,10 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 import re
 
 import numpy as np
-import openai
 
 from .loggers import ExperimentLogger
 from .utils import NoCodeException
+from .llm import LLMmanager
 
 
 class LLaMEA:
@@ -29,6 +29,7 @@ class LLaMEA:
         feedback_prompt="",
         budget=100,
         model="gpt-4-turbo",
+        log=True,
     ):
         """
         Initializes the LLaMEA instance with provided parameters.
@@ -43,8 +44,9 @@ class LLaMEA:
             feedback_prompt (str): Prompt to guide the model on how to provide feedback on the generated algorithms.
             budget (int): The number of generations to run the evolutionary algorithm.
             model (str): The model identifier from OpenAI to be used.
+            log (bool): Flag to switch of the logging of experiments.
         """
-        self.client = openai.OpenAI(api_key=api_key)
+        self.client = LLMmanager(api_key, model)
         self.api_key = api_key
         self.model = model
         self.f = f  # evaluation function, provides a string as feedback, a numerical value (higher is better), and a possible error string.
@@ -97,7 +99,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.last_error = ""
         self.last_solution = ""
         self.history = ""
-        self.logger = ExperimentLogger(f"{self.model}-ES {experiment_name}")
+        self.log = log
+        if self.log:
+            self.logger = ExperimentLogger(f"{self.model}-ES {experiment_name}")
 
     def initialize(self):
         """
@@ -108,7 +112,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},
         ]
-        self.logger.log_conversation(self.task_prompt)
+        if self.log:
+            self.logger.log_conversation(self.task_prompt)
         try:
             solution, name, algorithm_name_long = self.llm(session_messages)
             self.last_solution = solution
@@ -147,11 +152,12 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             Exception: Captures and logs any other exceptions that occur during the interaction.
         """
 
-        response = self.client.chat.completions.create(
-            model=self.model, messages=session_messages, temperature=0.8
+        response = self.client.chat(
+            session_messages
         )
         message = response.choices[0].message.content
-        self.logger.log_conversation(message)
+        if self.log:
+            self.logger.log_conversation(message)
         new_algorithm = self.extract_algorithm_code(message)
 
         algorithm_name = re.findall("class\\s*(\\w*)\\:", new_algorithm, re.IGNORECASE)[
@@ -179,7 +185,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             tuple: A tuple containing feedback (string), fitness (float), and error message (string).
         """
         # Implement fitness evaluation and error handling logic.
-        self.logger.log_code(self.generation, name, solution)
+        if self.log:
+            self.logger.log_code(self.generation, name, solution)
         feedback, fitness, error = self.f(solution, name, long_name)
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
@@ -253,7 +260,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         Returns:
             str: Extracted algorithm name or empty string.
         """
-        pattern = r"`#\s*Name:\s*(\\w*)`"
+        pattern = r"#\s*Name:\s*(.*)"
         match = re.search(pattern, message, re.IGNORECASE)
         if match:
             return match.group(1)

@@ -12,7 +12,7 @@ jobs:
         id: setup-python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8.12'
+          python-version: '3.10.0'
       #----------------------------------------------
       #  -----  install & configure poetry  -----
       #----------------------------------------------
@@ -53,4 +53,14 @@ jobs:
       #              run test suite
       #----------------------------------------------
       - name: Test with pytest
-        run: poetry run pytest tests/
+        run: poetry run pytest --cov=LLaMEA --cov-report=xml tests/
+      #----------------------------------------------
+      #             upload coverage stats
+      # (requires CODECOV_TOKEN in repository secrets)
+      #----------------------------------------------
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}  # Only required for private repositories
+          file: ./coverage.xml
+          fail_ci_if_error: true
