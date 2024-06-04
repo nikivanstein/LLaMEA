@@ -1,14 +1,9 @@
 <p align="center">
-  <img src="logo.png" alt="LLaMEA light mode image" style="display: none;"/>
-  <img src="logo-dark.png" alt="LLaMEA dark mode image" style="display: none;"/>
-
-  <script>
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.querySelector('img[alt="LLaMEA dark mode image"]').style.display = 'block';
-      } else {
-          document.querySelector('img[alt="LLaMEA light mode image"]').style.display = 'block';
-      }
-  </script>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="logo.png">
+    <img alt="Shows the LLaMEA logo." src="logo.png">
+  </picture>
 </p>
 
 <h1 align="center">LLaMEA: Large Language Model Evolutionary Algorithm</h1>
