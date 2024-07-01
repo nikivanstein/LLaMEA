@@ -34,6 +34,8 @@ LLaMEA (Large Language Model Evolutionary Algorithm) is an innovative framework 
   <img src="framework.png" alt="LLaMEA framework" style="width:100%;"/>
 </p>
 
+
+
 - **Automated Algorithm Generation**: Automatically generates and refines algorithms using GPT models.
 - **Performance Evaluation**: Integrates with the IOHexperimenter for real-time performance feedback, guiding the evolutionary process to generate metaheuristic optimization algorithms.
 - **Customizable Evolution Strategies**: Supports configuration of evolutionary strategies to explore algorithmic design spaces effectively.
@@ -130,6 +132,17 @@ If you use LLaMEA in your research, please consider citing the associated paper:
 ---
 
 For more details, please refer to the documentation and tutorials available in the repository.
+
+```mermaid
+flowchart LR
+    A[Initialization] -->|Starting prompt| B{Stop? fa:fa-hand}
+    B -->|No| C(Generate Algorithm - LLM )
+    B --> |Yes| G{{Return best so far fa:fa-code}}
+    C --> |fa:fa-code|D(Evaluate)
+    D -->|errors, scores| E[Store session history fa:fa-database]
+    E --> F(Construct Refinement Prompt)
+    F --> B
+```
 
 ---
 
