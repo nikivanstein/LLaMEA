@@ -7,11 +7,11 @@ from llamea import LLaMEA
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gpt-3.5-turbo" # gpt-4-turbo or gpt-3.5-turbo gpt-4o
-experiment_name ="plain"
+ai_model = "codellama" # gpt-4-turbo or gpt-3.5-turbo gpt-4o
+experiment_name ="elitism"
 
 
-def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
+def evaluateBBOB(code, algorithm_name, algorithm_name_long, explogger=None, details=False):
     auc_mean = 0
     auc_std = 0
     detailed_aucs = [0,0,0,0,0]
@@ -21,6 +21,7 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
     detail_aucs = []
+    algorithm = None
     for fid in np.arange(1,25):
         for iid in [1, 2, 3]: #, 4, 5]
             problem = get_problem(fid, iid, 5)
@@ -59,7 +60,8 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
 
     auc_mean = np.mean(aucs)
     auc_std = np.std(aucs)
-    #logger.log_aucs(openai_try, aucs)
+    if explogger != None:
+        explogger.log_aucs(aucs)
     feedback = f"The algorithm {algorithm_name_long} got an average AOCC score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
     if details:
         feedback = (f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name_long} on Separable functions was {detailed_aucs[0]:.02f}, "
@@ -74,5 +76,5 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
 
 
 
-es = LLaMEA(evaluateBBOB, api_key=api_key, experiment_name=experiment_name, model=ai_model)
+es = LLaMEA(evaluateBBOB, api_key=api_key, experiment_name=experiment_name, model=ai_model, elitism=True)
 print(es.run())

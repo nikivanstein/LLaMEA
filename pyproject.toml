@@ -21,6 +21,7 @@ tqdm = "^4.66.4"
 zss = "^1.2.0"
 jellyfish = "^1.0.3"
 pypop7 = "^0.0.79"
+ollama = "^0.2.1"
 
 [tool.poetry.dev-dependencies]
 black = "^23.11.0"

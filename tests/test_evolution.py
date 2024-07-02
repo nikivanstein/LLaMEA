@@ -41,15 +41,7 @@ def test_evolutionary_process():
 def test_evolutionary_process_with_errors():
     """Test the evolutionary process loop to ensure it updates generations even when errors occur."""
     
-    response = obj({
-        "choices": [
-            obj({
-                "index": 0,
-                "finish_reason": "stop",
-                "message": {"content": "hi!", "role": "assistant"},
-            })
-        ]
-    })
+    response = "hi!", "role": "assistant"
     
     optimizer = LLaMEA(f, role_prompt="You are super cute", task_prompt="just say hi", api_key="test_key", experiment_name="test evolution with errors", budget=10, log=False)
     optimizer.client.chat = MagicMock(return_value=response)

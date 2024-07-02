@@ -43,7 +43,7 @@ class LLaMEA:
             elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
             feedback_prompt (str): Prompt to guide the model on how to provide feedback on the generated algorithms.
             budget (int): The number of generations to run the evolutionary algorithm.
-            model (str): The model identifier from OpenAI to be used.
+            model (str): The model identifier from OpenAI or ollama to be used.
             log (bool): Flag to switch of the logging of experiments.
         """
         self.client = LLMmanager(api_key, model)
@@ -52,17 +52,19 @@ class LLaMEA:
         self.f = f  # evaluation function, provides a string as feedback, a numerical value (higher is better), and a possible error string.
         self.role_prompt = role_prompt
         if role_prompt == "":
-            self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems. Do not use hyped nature-inspired algorithms such as Harmony Search, Grey Wolf, Firefly, Whale optimizer etc. since these are generally not well performing."
+            self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
         if task_prompt == "":
             self.task_prompt = """
-The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
-The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality is set to 5.
+The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
 An example of such code (a simple random search), is as follows:
 ```
+import numpy as np
+
 class RandomSearch:
-    def __init__(self, budget=10000):
-        self.budget = 10000
-        self.dim = len(func.bounds.lb)
+    def __init__(self, budget=10000, dim=10):
+        self.budget = budget
+        self.dim = dim
 
     def __call__(self, func):
         self.f_opt = np.Inf
@@ -78,7 +80,7 @@ class RandomSearch:
         return self.f_opt, self.x_opt
 ```
 Give an excellent and novel heuristic algorithm to solve this task and also give it a name. Give the response in the format:
-# Name: <classname>
+# Name: <name>
 # Code: <code>
 """
         else:
@@ -86,8 +88,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.feedback_prompt = feedback_prompt
         if feedback_prompt == "":
             self.feedback_prompt = (
-                f"Either refine or redesign to improve the solution. Give the response in the format:\n"
-                f"# Name: <classname>\n"
+                f"Either refine or redesign to improve the solution (and give it a distinct name). Give the response in the format:\n"
+                f"# Name: <name>\n"
                 f"# Code: <code>"
             )
         self.budget = budget
@@ -102,6 +104,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.log = log
         if self.log:
             self.logger = ExperimentLogger(f"{self.model}-ES {experiment_name}")
+        else:
+            self.logger = None
 
     def initialize(self):
         """
@@ -112,8 +116,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},
         ]
-        if self.log:
-            self.logger.log_conversation(self.task_prompt)
+        
         try:
             solution, name, algorithm_name_long = self.llm(session_messages)
             self.last_solution = solution
@@ -151,9 +154,11 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             NoCodeException: If the language model fails to return any code.
             Exception: Captures and logs any other exceptions that occur during the interaction.
         """
+        if self.log:
+            self.logger.log_conversation('\n'.join([d['content'] for d in session_messages]))
 
-        response = self.client.chat(session_messages)
-        message = response.choices[0].message.content
+        message = self.client.chat(session_messages)
+        
         if self.log:
             self.logger.log_conversation(message)
         new_algorithm = self.extract_algorithm_code(message)
@@ -185,7 +190,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         # Implement fitness evaluation and error handling logic.
         if self.log:
             self.logger.log_code(self.generation, name, solution)
-        feedback, fitness, error = self.f(solution, name, long_name)
+        feedback, fitness, error = self.f(solution, name, long_name, self.logger)
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"
@@ -200,10 +205,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
         """
         if self.elitism:
-            solution = self.best_solution
+            solution = f"The best so far algorithm is as follows: \n```\n{self.best_solution}\n```\n"
             feedback = self.best_feedback
         else:
-            solution = self.last_solution
+            solution = f"The last tried algorithm is as follows: \n```\n{self.last_solution}\n```\n"
             feedback = self.last_feedback
 
         session_messages = [
@@ -222,6 +227,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         Updates the record of the best solution found so far if the latest solution has a higher fitness.
         This method checks and compares the fitness of the latest solution against the best-known fitness.
         """
+        print(self.best_fitness, self.last_fitness)
         if self.best_fitness < self.last_fitness:
             self.best_solution = self.last_solution
             self.best_fitness = self.last_fitness
@@ -285,12 +291,14 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                     self.last_error,
                 ) = self.evaluate_fitness(self.last_solution, name, algorithm_name_long)
             except NoCodeException:
-                print("No code was found. Continue the loop to try again.")
-                self.last_error = (
-                    "The code should be encapsulated with ``` in your response."
-                )
-                self.generation = self.generation + 1
-                continue
+                self.last_fitness = -np.Inf
+                self.last_feedback = "No code was extracted."
+                self.last_error = "The code should be encapsulated with ``` in your response."
+            except Exception as e:
+                self.last_fitness = -np.Inf
+                self.last_error = repr(e)
+                self.last_feedback = f"An exception occured: {self.last_error}."
+                
             self.update_best()
             self.generation = self.generation + 1
 
