@@ -132,7 +132,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             self.last_fitness = -np.Inf
             self.last_error = repr(e)
             self.last_feedback = f"An exception occured: {self.last_error}."
-            # print(self.last_error)
+            print(self.last_error)
         self.generation += 1
 
         self.best_solution = self.last_solution
@@ -155,12 +155,12 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             Exception: Captures and logs any other exceptions that occur during the interaction.
         """
         if self.log:
-            self.logger.log_conversation('\n'.join([d['content'] for d in session_messages]))
+            self.logger.log_conversation("LLaMEA", '\n'.join([d['content'] for d in session_messages]))
 
         message = self.client.chat(session_messages)
         
         if self.log:
-            self.logger.log_conversation(message)
+            self.logger.log_conversation(self.model, message)
         new_algorithm = self.extract_algorithm_code(message)
 
         algorithm_name = re.findall("class\\s*(\\w*)\\:", new_algorithm, re.IGNORECASE)[
@@ -227,8 +227,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         Updates the record of the best solution found so far if the latest solution has a higher fitness.
         This method checks and compares the fitness of the latest solution against the best-known fitness.
         """
-        print(self.best_fitness, self.last_fitness)
-        if self.best_fitness < self.last_fitness:
+        if self.best_fitness <= self.last_fitness or self.last_fitness == -np.Inf:
             self.best_solution = self.last_solution
             self.best_fitness = self.last_fitness
             self.best_error = self.last_error

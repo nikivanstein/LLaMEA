@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-
+import jsonlines
 import numpy as np
 
 
@@ -31,16 +31,17 @@ class ExperimentLogger:
         os.mkdir(f"{dirname}/code")
         return dirname
 
-    def log_conversation(self, content):
+    def log_conversation(self, role, content):
         """
         Logs the given conversation content into a conversation log file.
 
         Args:
+            role (str): Who (the llm or user) said the content.
             content (str): The conversation content to be logged.
         """
-        with open(f"{self.dirname}/conversationlog.txt", "a") as file:
-            file.write(f"\n\n-- {datetime.now()}\n")
-            file.write(content)
+        conversation_object = {"role": role, "time": f"{datetime.now()}", "content": content}
+        with jsonlines.open(f"{self.dirname}/conversationlog.jsonl", "a") as file:
+            file.write(conversation_object)
 
     def log_code(self, attempt, algorithm_name, code):
         """

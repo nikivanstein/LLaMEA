@@ -16,47 +16,46 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, explogger=None, deta
     auc_std = 0
     detailed_aucs = [0,0,0,0,0]
     exec(code, globals())
-    budget = 10000
+    budget = 2000
     error = ""
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
     detail_aucs = []
     algorithm = None
-    for fid in np.arange(1,25):
-        for iid in [1, 2, 3]: #, 4, 5]
-            problem = get_problem(fid, iid, 5)
-            problem.attach_logger(l2)
+    for dim in [2]:
+        for fid in np.arange(1,2):
+            for iid in [1, 2, 3]: #, 4, 5]
+                problem = get_problem(fid, iid, dim)
+                problem.attach_logger(l2)
 
-            for rep in range(3):
-                np.random.seed(rep)
-                try:
-                    algorithm = globals()[algorithm_name](budget)
-                    algorithm(problem)
-                except OverBudgetException:
-                    pass
-                except:
-                    pass
-                
-                auc = correct_aoc(problem, l2, budget)
-                aucs.append(auc)
-                detail_aucs.append(auc)
-                l2.reset(problem)
-                problem.reset()
-        if fid == 5:
-            detailed_aucs[0] = np.mean(detail_aucs)
-            detail_aucs = []
-        if fid == 9:
-            detailed_aucs[1] = np.mean(detail_aucs)
-            detail_aucs = []
-        if fid == 14:
-            detailed_aucs[2] = np.mean(detail_aucs)
-            detail_aucs = []
-        if fid == 19:
-            detailed_aucs[3] = np.mean(detail_aucs)
-            detail_aucs = []
-        if fid == 24:
-            detailed_aucs[4] = np.mean(detail_aucs)
-            detail_aucs = []
+                for rep in range(3):
+                    np.random.seed(rep)
+                    try:
+                        algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+                        algorithm(problem)
+                    except OverBudgetException:
+                        pass
+                    
+                    auc = correct_aoc(problem, l2, budget)
+                    aucs.append(auc)
+                    detail_aucs.append(auc)
+                    l2.reset(problem)
+                    problem.reset()
+            if fid == 5:
+                detailed_aucs[0] = np.mean(detail_aucs)
+                detail_aucs = []
+            if fid == 9:
+                detailed_aucs[1] = np.mean(detail_aucs)
+                detail_aucs = []
+            if fid == 14:
+                detailed_aucs[2] = np.mean(detail_aucs)
+                detail_aucs = []
+            if fid == 19:
+                detailed_aucs[3] = np.mean(detail_aucs)
+                detail_aucs = []
+            if fid == 24:
+                detailed_aucs[4] = np.mean(detail_aucs)
+                detail_aucs = []
 
     auc_mean = np.mean(aucs)
     auc_std = np.std(aucs)

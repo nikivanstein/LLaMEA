@@ -1348,6 +1348,20 @@ files = [
 ]
 
 [[package]]
+name = "jsonlines"
+version = "4.0.0"
+description = "Library with helpers for the jsonlines file format"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "jsonlines-4.0.0-py3-none-any.whl", hash = "sha256:185b334ff2ca5a91362993f42e83588a360cf95ce4b71a73548502bda52a7c55"},
+    {file = "jsonlines-4.0.0.tar.gz", hash = "sha256:0c6d2c09117550c089995247f605ae4cf77dd1533041d366351f6f298822ea74"},
+]
+
+[package.dependencies]
+attrs = ">=19.2.0"
+
+[[package]]
 name = "jsonpointer"
 version = "2.4"
 description = "Identify specific nodes in a JSON document (RFC 6901)"
@@ -3892,4 +3906,4 @@ six = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "a1601a54c93aa12ca62ef569fb33feb947dadc042e43b68cbaee7538880e96f2"
+content-hash = "36e20bc896a354dc407bb706c763f76456b6819d17f1074e2b28edf1b8c51aed"
