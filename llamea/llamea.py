@@ -9,7 +9,7 @@ import numpy as np
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException
-
+import traceback
 
 class LLaMEA:
     """
@@ -130,7 +130,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             self.last_feedback = "No code was extracted."
         except Exception as e:
             self.last_fitness = -np.Inf
-            self.last_error = repr(e)
+            self.last_error = repr(e) + traceback.format_exc()
             self.last_feedback = f"An exception occured: {self.last_error}."
             print(self.last_error)
         self.generation += 1
