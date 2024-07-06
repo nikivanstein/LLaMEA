@@ -3,13 +3,14 @@ This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
 import re
+import traceback
 
 import numpy as np
 
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException
-import traceback
+
 
 class LLaMEA:
     """
@@ -103,7 +104,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.history = ""
         self.log = log
         if self.log:
-            modelname = self.model.replace(":","_")
+            modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"{modelname}-ES {experiment_name}")
         else:
             self.logger = None
@@ -117,7 +118,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},
         ]
-        
+
         try:
             solution, name, algorithm_name_long = self.llm(session_messages)
             self.last_solution = solution
@@ -156,10 +157,12 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             Exception: Captures and logs any other exceptions that occur during the interaction.
         """
         if self.log:
-            self.logger.log_conversation("LLaMEA", '\n'.join([d['content'] for d in session_messages]))
+            self.logger.log_conversation(
+                "LLaMEA", "\n".join([d["content"] for d in session_messages])
+            )
 
         message = self.client.chat(session_messages)
-        
+
         if self.log:
             self.logger.log_conversation(self.model, message)
         new_algorithm = self.extract_algorithm_code(message)
@@ -293,12 +296,14 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             except NoCodeException:
                 self.last_fitness = -np.Inf
                 self.last_feedback = "No code was extracted."
-                self.last_error = "The code should be encapsulated with ``` in your response."
+                self.last_error = (
+                    "The code should be encapsulated with ``` in your response."
+                )
             except Exception as e:
                 self.last_fitness = -np.Inf
                 self.last_error = repr(e)
                 self.last_feedback = f"An exception occured: {self.last_error}."
-                
+
             self.update_best()
             self.generation = self.generation + 1
 

@@ -13,7 +13,7 @@ class obj(object):
                 setattr(self, k, obj(v) if isinstance(v, dict) else v)
 
 f_try = 0
-def f(code, name, longname):
+def f(code, name, longname, logger):
     global f_try
     f_try += 1
     return f"feedback {name} {f_try}", f_try*0.1, ""
@@ -21,16 +21,7 @@ def f(code, name, longname):
 def test_evolutionary_process():
     """Test the evolutionary process loop to ensure it updates generations."""
     
-    response = obj({
-        "choices": [
-            obj({
-                "index": 0,
-                "finish_reason": "stop",
-                "message": {"content": "# Name: Long Example Algorithm\n# Code:\n```python\nclass ExampleAlgorithm:\n    pass\n```", "role": "assistant"},
-            })
-        ]
-    })
-    
+    response ="# Name: Long Example Algorithm\n# Code:\n```python\nclass ExampleAlgorithm:\n    pass\n```"
     optimizer = LLaMEA(f, api_key="test_key", experiment_name="test evolution", elitism=True, budget=10, log=True)
     optimizer.client.chat = MagicMock(return_value=response)
     best_solution, best_fitness = optimizer.run()  # Assuming run has a very simple loop for testing
@@ -41,8 +32,7 @@ def test_evolutionary_process():
 def test_evolutionary_process_with_errors():
     """Test the evolutionary process loop to ensure it updates generations even when errors occur."""
     
-    response = "hi!", "role": "assistant"
-    
+    response = "hi!"
     optimizer = LLaMEA(f, role_prompt="You are super cute", task_prompt="just say hi", api_key="test_key", experiment_name="test evolution with errors", budget=10, log=False)
     optimizer.client.chat = MagicMock(return_value=response)
     best_solution, best_fitness = optimizer.run()  # Assuming run has a very simple loop for testing

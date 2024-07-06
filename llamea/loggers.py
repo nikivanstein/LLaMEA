@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+
 import jsonlines
 import numpy as np
 
@@ -39,7 +40,11 @@ class ExperimentLogger:
             role (str): Who (the llm or user) said the content.
             content (str): The conversation content to be logged.
         """
-        conversation_object = {"role": role, "time": f"{datetime.now()}", "content": content}
+        conversation_object = {
+            "role": role,
+            "time": f"{datetime.now()}",
+            "content": content,
+        }
         with jsonlines.open(f"{self.dirname}/conversationlog.jsonl", "a") as file:
             file.write(conversation_object)
 
