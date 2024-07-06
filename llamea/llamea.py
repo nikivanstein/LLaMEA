@@ -103,7 +103,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.history = ""
         self.log = log
         if self.log:
-            self.logger = ExperimentLogger(f"{self.model}-ES {experiment_name}")
+            modelname = self.model.replace(":","_")
+            self.logger = ExperimentLogger(f"{modelname}-ES {experiment_name}")
         else:
             self.logger = None
 

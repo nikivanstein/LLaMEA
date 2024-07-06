@@ -12,7 +12,7 @@ class LLMmanager:
         Args:
             api_key (str): api key for authentication.
             model (str, optional): model abbreviation. Defaults to "gpt-4-turbo".
-                Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o, llama3, codellama
+                Options are: gpt-3.5-turbo, gpt-4-turbo, gpt-4o, llama3, codellama, deepseek-coder-v2, gemma2, codegemma, 
         """
         self.api_key = api_key
         self.model = model

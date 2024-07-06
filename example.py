@@ -7,7 +7,7 @@ from llamea import LLaMEA
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "codellama" # gpt-4-turbo or gpt-3.5-turbo gpt-4o
+ai_model = "codellama:34b" # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
 experiment_name ="elitism"
 
 
@@ -16,14 +16,14 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, explogger=None, deta
     auc_std = 0
     detailed_aucs = [0,0,0,0,0]
     exec(code, globals())
-    budget = 2000
+    budget = 10000
     error = ""
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
     detail_aucs = []
     algorithm = None
-    for dim in [2]:
-        for fid in np.arange(1,2):
+    for dim in [5]:
+        for fid in np.arange(1,25):
             for iid in [1, 2, 3]: #, 4, 5]
                 problem = get_problem(fid, iid, dim)
                 problem.attach_logger(l2)
@@ -61,7 +61,7 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, explogger=None, deta
     auc_std = np.std(aucs)
     if explogger != None:
         explogger.log_aucs(aucs)
-    feedback = f"The algorithm {algorithm_name_long} got an average AOCC score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
+    feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
     if details:
         feedback = (f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name_long} on Separable functions was {detailed_aucs[0]:.02f}, "
                     f"on functions with low or moderate conditioning {detailed_aucs[1]:.02f}, "
@@ -74,6 +74,6 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, explogger=None, deta
     return feedback, auc_mean, error
 
 
-
-es = LLaMEA(evaluateBBOB, api_key=api_key, experiment_name=experiment_name, model=ai_model, elitism=True)
-print(es.run())
+for experiment_i in [1,2,3,4,5]:
+    es = LLaMEA(evaluateBBOB, api_key=api_key, experiment_name=experiment_name, model=ai_model, elitism=True)
+    print(es.run())
