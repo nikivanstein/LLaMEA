@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+import jsonlines
 import numpy as np
 
 
@@ -14,6 +15,7 @@ class ExperimentLogger:
             name (str): The name of the experiment.
         """
         self.dirname = self.create_log_dir(name)
+        self.attempt = 0
 
     def create_log_dir(self, name=""):
         """
@@ -30,16 +32,21 @@ class ExperimentLogger:
         os.mkdir(f"{dirname}/code")
         return dirname
 
-    def log_conversation(self, content):
+    def log_conversation(self, role, content):
         """
         Logs the given conversation content into a conversation log file.
 
         Args:
+            role (str): Who (the llm or user) said the content.
             content (str): The conversation content to be logged.
         """
-        with open(f"{self.dirname}/conversationlog.txt", "a") as file:
-            file.write(f"\n\n-- {datetime.now()}\n")
-            file.write(content)
+        conversation_object = {
+            "role": role,
+            "time": f"{datetime.now()}",
+            "content": content,
+        }
+        with jsonlines.open(f"{self.dirname}/conversationlog.jsonl", "a") as file:
+            file.write(conversation_object)
 
     def log_code(self, attempt, algorithm_name, code):
         """
@@ -54,8 +61,9 @@ class ExperimentLogger:
             f"{self.dirname}/code/try-{attempt}-{algorithm_name}.py", "w"
         ) as file:
             file.write(code)
+        self.attempt = attempt
 
-    def log_aucs(self, attempt, aucs):
+    def log_aucs(self, aucs):
         """
         Logs the given AOCCs (Area Over the Convergence Curve, named here auc) into a file, named based on the attempt number.
 
@@ -63,4 +71,4 @@ class ExperimentLogger:
             attempt (int): The attempt number corresponding to the AOCCs.
             aucs (array_like): An array of AUC scores to be saved.
         """
-        np.savetxt(f"{self.dirname}/try-{attempt}-aucs.txt", aucs)
+        np.savetxt(f"{self.dirname}/try-{self.attempt}-aucs.txt", aucs)
