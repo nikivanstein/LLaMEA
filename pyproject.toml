@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "llamea"
-version = "0.9.1"
+version = "0.9.2"
 description = ""
 authors = ["Niki van Stein <n.van.stein@liacs.leidenuniv.nl>"]
 readme = "README.md"
