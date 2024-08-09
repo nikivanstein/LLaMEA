@@ -95,7 +95,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.feedback_prompt = feedback_prompt
         if feedback_prompt == "":
             self.feedback_prompt = (
-                f"Either refine or redesign to improve the solution (and give it a distinct name). Give the response in the format:\n"
+                f"Either refine or redesign to improve the selected solution (and give it a distinct name). Give the response in the format:\n"
                 f"# Name: <name>\n"
                 f"# Code: <code>"
             )
@@ -109,7 +109,6 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.best_fitness = -np.Inf
         self.best_error = ""
         self.last_error = ""
-        self.last_solution = ""
         self.history = ""
         self.log = log
         self._random = _random
@@ -157,7 +156,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 "feedback": feedback,
             }
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             population = list(
                 executor.map(lambda _: initialize_single(), range(self.n_parents))
             )
@@ -197,8 +196,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         algorithm_name_long = self.extract_algorithm_name(message)
         if algorithm_name_long == "":
             algorithm_name_long = algorithm_name
-        # todo rename algorithm
-        self.last_solution = message
+            
         # extract algorithm name and algorithm
         return new_algorithm, algorithm_name, algorithm_name_long
 
@@ -238,7 +236,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},
             {"role": "user", "content": self.history},
-            {"role": "assistant", "content": solution},
+            {"role": "assistant", "content": f"The selected solution is: \n{solution}"},
             {"role": "user", "content": feedback},
             {"role": "user", "content": self.feedback_prompt},
         ]
@@ -378,7 +376,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             )
 
             # Use ThreadPoolExecutor for parallel evolution of solutions
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                 new_population = list(executor.map(evolve_solution, new_offspring))
             self.generation += self.n_offspring
 

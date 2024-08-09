@@ -16,13 +16,14 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
     auc_std = 0
     detailed_aucs = [0,0,0,0,0]
     exec(code, globals())
-    budget = 1000
+    
     error = ""
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
     detail_aucs = []
     algorithm = None
     for dim in [5]:
+        budget = 2000 * dim
         for fid in np.arange(1,25):
             for iid in [1,2,3]: #, 4, 5]
                 problem = get_problem(fid, iid, dim)
@@ -61,9 +62,9 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
     auc_std = np.std(aucs)
 
     i = 0
-    while os.path.exists(f"aucs-{i}.npy"):
+    while os.path.exists(f"currentexp/aucs-{algorithm_name}-{i}.npy"):
         i+=1
-    np.savetxt(f"aucs-{i}.txt", aucs)
+    np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
 
     feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
     if details:
@@ -87,5 +88,5 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 """
 
 for experiment_i in range(5):
-    es = LLaMEA(evaluateBBOB, n_parents=5, n_offspring=8, api_key=api_key, task_prompt=task_prompt, experiment_name=experiment_name, model=ai_model, elitism=True, budget=1000)
+    es = LLaMEA(evaluateBBOB, n_parents=10, n_offspring=50, api_key=api_key, task_prompt=task_prompt, experiment_name=experiment_name, model=ai_model, elitism=True, budget=1000)
     print(es.run())
