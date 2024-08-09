@@ -66,10 +66,10 @@ class RandomSearch:
     def __init__(self, budget=10000, dim=10):
         self.budget = budget
         self.dim = dim
-
-    def __call__(self, func):
         self.f_opt = np.Inf
         self.x_opt = None
+
+    def __call__(self, func):
         for i in range(self.budget):
             x = np.random.uniform(func.bounds.lb, func.bounds.ub)
             
@@ -166,8 +166,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         if self.log:
             self.logger.log_conversation(self.model, message)
         new_algorithm = self.extract_algorithm_code(message)
-
-        algorithm_name = re.findall("class\\s*(\\w*)\\:", new_algorithm, re.IGNORECASE)[
+        
+        algorithm_name = re.findall("class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_algorithm, re.IGNORECASE)[
             0
         ]
         algorithm_name_long = self.extract_algorithm_name(message)
@@ -198,6 +198,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"
+            self.logger.log_failed_code(self.generation, name, solution)
         return feedback, fitness, error
 
     def construct_prompt(self):

@@ -63,6 +63,20 @@ class ExperimentLogger:
             file.write(code)
         self.attempt = attempt
 
+    def log_failed_code(self, attempt, algorithm_name, code):
+        """
+        Logs the provided code into a file, uniquely named based on the attempt number and algorithm name.
+
+        Args:
+            attempt (int): The attempt number of the code execution.
+            algorithm_name (str): The name of the algorithm used.
+            code (str): The source code to be logged.
+        """
+        with open(
+            f"{self.dirname}/code/fail-{attempt}-{algorithm_name}.py", "w"
+        ) as file:
+            file.write(code)
+
     def log_aucs(self, aucs):
         """
         Logs the given AOCCs (Area Over the Convergence Curve, named here auc) into a file, named based on the attempt number.
