@@ -24,9 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function addMessage(message) {
+        var messageContent = marked.parse(message.content)
         const messageElement = document.createElement('div');
         messageElement.classList.add('message');
-        messageElement.innerHTML = `<span class="role">${message.role}:</span> ${message.content} <span class="time">[${new Date(message.time).toLocaleTimeString()}]</span>`;
+        messageElement.innerHTML = `<span class="role">${message.role}:</span> ${messageContent} <span class="time">[${new Date(message.time).toLocaleTimeString()}]</span>`;
         messagesContainer.appendChild(messageElement);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }

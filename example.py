@@ -11,12 +11,12 @@ ai_model = "codellama:7b" # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
 experiment_name ="pop5-8"
 
 
-def evaluateBBOB(code, algorithm_name, algorithm_name_long, explogger=None, details=False):
+def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
     auc_mean = 0
     auc_std = 0
     detailed_aucs = [0,0,0,0,0]
     exec(code, globals())
-    budget = 10000
+    budget = 1000
     error = ""
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
@@ -59,8 +59,12 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, explogger=None, deta
 
     auc_mean = np.mean(aucs)
     auc_std = np.std(aucs)
-    if explogger != None:
-        explogger.log_aucs(aucs)
+
+    i = 0
+    while os.path.exists(f"aucs-{i}.npy"):
+        i+=1
+    np.savetxt(f"aucs-{i}.txt", aucs)
+
     feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
     if details:
         feedback = (f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name_long} on Separable functions was {detailed_aucs[0]:.02f}, "

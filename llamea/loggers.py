@@ -85,7 +85,7 @@ class ExperimentLogger:
         ) as file:
             file.write(code)
 
-    def log_aucs(self, aucs):
+    def log_aucs(self, attempt, aucs):
         """
         Logs the given AOCCs (Area Over the Convergence Curve, named here auc) into a file, named based on the attempt number.
 
@@ -93,4 +93,4 @@ class ExperimentLogger:
             attempt (int): The attempt number corresponding to the AOCCs.
             aucs (array_like): An array of AUC scores to be saved.
         """
-        np.savetxt(f"{self.dirname}/try-{self.attempt}-aucs.txt", aucs)
+        np.savetxt(f"{self.dirname}/try-{attempt}-aucs.txt", aucs)
