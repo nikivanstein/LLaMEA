@@ -125,16 +125,18 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         """
 
         def initialize_single():
-        """
-        Initializes a single solution.
-        """
+            """
+            Initializes a single solution.
+            """
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {"role": "user", "content": self.task_prompt},
             ]
             try:
                 solution, name, algorithm_name_long = self.llm(session_messages)
-                feedback, fitness, error = self.evaluate_fitness(solution, name, algorithm_name_long)
+                feedback, fitness, error = self.evaluate_fitness(
+                    solution, name, algorithm_name_long
+                )
             except NoCodeException:
                 fitness = -np.Inf
                 feedback = "No code was extracted."
@@ -144,16 +146,18 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 error = repr(e) + traceback.format_exc()
                 feedback = f"An exception occurred: {error}."
                 print(error)
-            
+
             return {
-                'solution': solution,
-                'fitness': fitness,
-                'error': error,
-                'feedback': feedback
+                "solution": solution,
+                "fitness": fitness,
+                "error": error,
+                "feedback": feedback,
             }
-        
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            population = list(executor.map(lambda _: initialize_single(), range(self.n_parents)))
+            population = list(
+                executor.map(lambda _: initialize_single(), range(self.n_parents))
+            )
 
         self.generation += self.n_parents
         self.population = population  # Save the entire population if needed
@@ -183,10 +187,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         if self.log:
             self.logger.log_conversation(self.model, message)
         new_algorithm = self.extract_algorithm_code(message)
-        
-        algorithm_name = re.findall("class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_algorithm, re.IGNORECASE)[
-            0
-        ]
+
+        algorithm_name = re.findall(
+            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_algorithm, re.IGNORECASE
+        )[0]
         algorithm_name_long = self.extract_algorithm_name(message)
         if algorithm_name_long == "":
             algorithm_name_long = algorithm_name
@@ -239,10 +243,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             {"role": "user", "content": self.feedback_prompt},
         ]
 
-        if self._random: #not advised to use
+        if self._random:  # not advised to use
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
-                {"role": "user", "content": self.task_prompt}
+                {"role": "user", "content": self.task_prompt},
             ]
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
@@ -251,12 +255,12 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         """
         Update the best individual in the new population
         """
-        best_individual = max(self.population, key=lambda x: x['fitness'])
-        if best_individual['fitness'] > self.best_fitness:
-            self.best_solution = best_individual['solution']
-            self.best_fitness = best_individual['fitness']
-            self.best_error = best_individual['error']
-            self.best_feedback = best_individual['feedback']
+        best_individual = max(self.population, key=lambda x: x["fitness"])
+        if best_individual["fitness"] > self.best_fitness:
+            self.best_solution = best_individual["solution"]
+            self.best_fitness = best_individual["fitness"]
+            self.best_error = best_individual["error"]
+            self.best_feedback = best_individual["feedback"]
 
     def selection(self, parents, offspring):
         """
@@ -273,17 +277,16 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             # Combine parents and offspring
             combined_population = parents + offspring
             # Sort by fitness, descending (assuming higher fitness is better)
-            combined_population.sort(key=lambda x: x['fitness'], reverse=True)
+            combined_population.sort(key=lambda x: x["fitness"], reverse=True)
             # Select the top individuals to form the new population
-            new_population = combined_population[:self.n_parents]
+            new_population = combined_population[: self.n_parents]
         else:
             # Sort offspring by fitness, descending
-            offspring.sort(key=lambda x: x['fitness'], reverse=True)
+            offspring.sort(key=lambda x: x["fitness"], reverse=True)
             # Select the top individuals from offspring to form the new population
-            new_population = offspring[:self.n_parents]
+            new_population = offspring[: self.n_parents]
 
         return new_population
-
 
     def extract_algorithm_code(self, message):
         """
@@ -323,7 +326,6 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         else:
             return ""
 
-
     def run(self):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
@@ -337,35 +339,38 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 
         def evolve_solution(individual):
             """
-            Evolves a single solution by constructing a new prompt, 
+            Evolves a single solution by constructing a new prompt,
             querying the LLM, and evaluating the fitness.
             """
-            new_prompt = self.construct_prompt(individual['solution'], individual['feedback'])
+            new_prompt = self.construct_prompt(
+                individual["solution"], individual["feedback"]
+            )
             try:
                 solution, name, algorithm_name_long = self.llm(new_prompt)
-                feedback, fitness, error = self.evaluate_fitness(solution, name, algorithm_name_long)
+                feedback, fitness, error = self.evaluate_fitness(
+                    solution, name, algorithm_name_long
+                )
             except NoCodeException:
                 fitness = -np.Inf
                 feedback = "No code was extracted."
-                error = (
-                    "The code should be encapsulated with ``` in your response."
-                )
+                error = "The code should be encapsulated with ``` in your response."
             except Exception as e:
                 fitness = -np.Inf
                 error = repr(e)
                 feedback = f"An exception occurred: {error}."
 
             return {
-                'solution': solution,
-                'fitness': fitness,
-                'error': error,
-                'feedback': feedback
+                "solution": solution,
+                "fitness": fitness,
+                "error": error,
+                "feedback": feedback,
             }
 
         while self.generation < self.budget:
-
-            #pick a new offspring population using random sampling
-            new_offspring = np.random.choice(self.population, self.n_offspring, replace=True)
+            # pick a new offspring population using random sampling
+            new_offspring = np.random.choice(
+                self.population, self.n_offspring, replace=True
+            )
 
             # Use ThreadPoolExecutor for parallel evolution of solutions
             with concurrent.futures.ThreadPoolExecutor() as executor:
