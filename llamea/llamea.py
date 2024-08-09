@@ -6,7 +6,7 @@ import re
 import traceback
 
 import numpy as np
-
+import concurrent.futures
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException
@@ -23,29 +23,35 @@ class LLaMEA:
         self,
         f,
         api_key,
+        n_parents=5,
+        n_offspring=10,
+        elitism=False,
         role_prompt="",
         task_prompt="",
         experiment_name="",
-        elitism=False,
         feedback_prompt="",
         budget=100,
         model="gpt-4-turbo",
         log=True,
+        _random=False,
     ):
         """
-        Initializes the LLaMEA instance with provided parameters.
+        Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
 
         Args:
             f (callable): The evaluation function to measure the fitness of algorithms.
             api_key (str): The API key for accessing OpenAI's services.
+            n_parents (int): The number of parents in the population.
+            n_offspring (int): The number of offspring each iteration.
+            elitism (bool): Flag to decide if elitism (plus strategy) should be used in the evolutionary process or comma strategy.
             role_prompt (str): A prompt that defines the role of the language model in the optimization task.
             task_prompt (str): A prompt describing the task for the language model to generate optimization algorithms.
             experiment_name (str): The name of the experiment for logging purposes.
-            elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
             feedback_prompt (str): Prompt to guide the model on how to provide feedback on the generated algorithms.
             budget (int): The number of generations to run the evolutionary algorithm.
             model (str): The model identifier from OpenAI or ollama to be used.
             log (bool): Flag to switch of the logging of experiments.
+            _random (bool): Flag to switch to random search (purely for debugging).
         """
         self.client = LLMmanager(api_key, model)
         self.api_key = api_key
@@ -94,6 +100,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 f"# Code: <code>"
             )
         self.budget = budget
+        self.n_parents = n_parents
+        self.n_offspring = n_offspring
+        self.population = []
         self.elitism = elitism
         self.generation = 0
         self.best_solution = None
@@ -103,6 +112,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.last_solution = ""
         self.history = ""
         self.log = log
+        self._random = _random
         if self.log:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"{modelname}-ES {experiment_name}")
@@ -111,36 +121,43 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 
     def initialize(self):
         """
-        Initializes the evolutionary process by generating the first parent program.
+        Initializes the evolutionary process by generating the first parent population.
         """
-        self.last_error = ""
-        session_messages = [
-            {"role": "system", "content": self.role_prompt},
-            {"role": "user", "content": self.task_prompt},
-        ]
 
-        try:
-            solution, name, algorithm_name_long = self.llm(session_messages)
-            self.last_solution = solution
-            (
-                self.last_feedback,
-                self.last_fitness,
-                self.last_error,
-            ) = self.evaluate_fitness(solution, name, algorithm_name_long)
-        except NoCodeException:
-            self.last_fitness = -np.Inf
-            self.last_feedback = "No code was extracted."
-        except Exception as e:
-            self.last_fitness = -np.Inf
-            self.last_error = repr(e) + traceback.format_exc()
-            self.last_feedback = f"An exception occured: {self.last_error}."
-            print(self.last_error)
-        self.generation += 1
+        def initialize_single():
+        """
+        Initializes a single solution.
+        """
+            session_messages = [
+                {"role": "system", "content": self.role_prompt},
+                {"role": "user", "content": self.task_prompt},
+            ]
+            try:
+                solution, name, algorithm_name_long = self.llm(session_messages)
+                feedback, fitness, error = self.evaluate_fitness(solution, name, algorithm_name_long)
+            except NoCodeException:
+                fitness = -np.Inf
+                feedback = "No code was extracted."
+                error = ""
+            except Exception as e:
+                fitness = -np.Inf
+                error = repr(e) + traceback.format_exc()
+                feedback = f"An exception occurred: {error}."
+                print(error)
+            
+            return {
+                'solution': solution,
+                'fitness': fitness,
+                'error': error,
+                'feedback': feedback
+            }
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            population = list(executor.map(lambda _: initialize_single(), range(self.n_parents)))
 
-        self.best_solution = self.last_solution
-        self.best_fitness = self.last_fitness
-        self.best_error = self.last_error
-        self.best_feedback = self.last_feedback
+        self.generation += self.n_parents
+        self.population = population  # Save the entire population if needed
+        self.update_best()
 
     def llm(self, session_messages):
         """
@@ -198,24 +215,21 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"
-            self.logger.log_failed_code(self.generation, name, solution)
+            self.logger.log_failed_code(self.generation, name, self.last_solution)
         return feedback, fitness, error
 
-    def construct_prompt(self):
+    def construct_prompt(self, solution, feedback):
         """
         Constructs a new session prompt for the language model based on the best or the latest solution,
         depending on whether elitism is enabled.
 
+        Args:
+            solution (str): The solution to evolve.
+            feedback (str): The feedback on this solution.
+
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
         """
-        if self.elitism:
-            solution = f"The best so far algorithm is as follows: \n```\n{self.best_solution}\n```\n"
-            feedback = self.best_feedback
-        else:
-            solution = f"The last tried algorithm is as follows: \n```\n{self.last_solution}\n```\n"
-            feedback = self.last_feedback
-
         session_messages = [
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},
@@ -224,18 +238,52 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             {"role": "user", "content": feedback},
             {"role": "user", "content": self.feedback_prompt},
         ]
+
+        if self._random: #not advised to use
+            session_messages = [
+                {"role": "system", "content": self.role_prompt},
+                {"role": "user", "content": self.task_prompt}
+            ]
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages
 
     def update_best(self):
         """
-        Updates the record of the best solution found so far if the latest solution has a higher fitness.
-        This method checks and compares the fitness of the latest solution against the best-known fitness.
+        Update the best individual in the new population
         """
-        if self.best_fitness <= self.last_fitness or self.last_fitness == -np.Inf:
-            self.best_solution = self.last_solution
-            self.best_fitness = self.last_fitness
-            self.best_error = self.last_error
+        best_individual = max(self.population, key=lambda x: x['fitness'])
+        if best_individual['fitness'] > self.best_fitness:
+            self.best_solution = best_individual['solution']
+            self.best_fitness = best_individual['fitness']
+            self.best_error = best_individual['error']
+            self.best_feedback = best_individual['feedback']
+
+    def selection(self, parents, offspring):
+        """
+        Select the new population based on the parents and the offspring and the current strategy.
+
+        Args:
+            parents (list): List of solutions.
+            offspring (list): List of new solutions.
+
+        Returns:
+            list: List of new selected population.
+        """
+        if self.elitism:
+            # Combine parents and offspring
+            combined_population = parents + offspring
+            # Sort by fitness, descending (assuming higher fitness is better)
+            combined_population.sort(key=lambda x: x['fitness'], reverse=True)
+            # Select the top individuals to form the new population
+            new_population = combined_population[:self.n_parents]
+        else:
+            # Sort offspring by fitness, descending
+            offspring.sort(key=lambda x: x['fitness'], reverse=True)
+            # Select the top individuals from offspring to form the new population
+            new_population = offspring[:self.n_parents]
+
+        return new_population
+
 
     def extract_algorithm_code(self, message):
         """
@@ -275,6 +323,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         else:
             return ""
 
+
     def run(self):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
@@ -284,28 +333,47 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
-        self.initialize()
-        while self.generation < self.budget:
-            new_prompt = self.construct_prompt()
+        self.initialize()  # Initialize a population
+
+        def evolve_solution(individual):
+            """
+            Evolves a single solution by constructing a new prompt, 
+            querying the LLM, and evaluating the fitness.
+            """
+            new_prompt = self.construct_prompt(individual['solution'], individual['feedback'])
             try:
-                self.last_solution, name, algorithm_name_long = self.llm(new_prompt)
-                (
-                    self.last_feedback,
-                    self.last_fitness,
-                    self.last_error,
-                ) = self.evaluate_fitness(self.last_solution, name, algorithm_name_long)
+                solution, name, algorithm_name_long = self.llm(new_prompt)
+                feedback, fitness, error = self.evaluate_fitness(solution, name, algorithm_name_long)
             except NoCodeException:
-                self.last_fitness = -np.Inf
-                self.last_feedback = "No code was extracted."
-                self.last_error = (
+                fitness = -np.Inf
+                feedback = "No code was extracted."
+                error = (
                     "The code should be encapsulated with ``` in your response."
                 )
             except Exception as e:
-                self.last_fitness = -np.Inf
-                self.last_error = repr(e)
-                self.last_feedback = f"An exception occured: {self.last_error}."
+                fitness = -np.Inf
+                error = repr(e)
+                feedback = f"An exception occurred: {error}."
 
+            return {
+                'solution': solution,
+                'fitness': fitness,
+                'error': error,
+                'feedback': feedback
+            }
+
+        while self.generation < self.budget:
+
+            #pick a new offspring population using random sampling
+            new_offspring = np.random.choice(self.population, self.n_offspring, replace=True)
+
+            # Use ThreadPoolExecutor for parallel evolution of solutions
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                new_population = list(executor.map(evolve_solution, new_offspring))
+            self.generation += self.n_offspring
+
+            # Update population and the best solution
+            self.population = self.selection(self.population, new_population)
             self.update_best()
-            self.generation = self.generation + 1
 
         return self.best_solution, self.best_fitness
