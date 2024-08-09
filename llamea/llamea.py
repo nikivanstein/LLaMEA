@@ -128,6 +128,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             """
             Initializes a single solution.
             """
+            solution = ""
+            name = ""
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {"role": "user", "content": self.task_prompt},
@@ -148,6 +150,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 print(error)
 
             return {
+                "name": name,
                 "solution": solution,
                 "fitness": fitness,
                 "error": error,
@@ -213,13 +216,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             tuple: A tuple containing feedback (string), fitness (float), and error message (string).
         """
         # Implement fitness evaluation and error handling logic.
-        if self.log:
-            self.logger.log_code(self.generation, name, solution)
-        feedback, fitness, error = self.f(solution, name, long_name, self.logger)
+        feedback, fitness, error = self.f(solution, name, long_name)
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"
-            self.logger.log_failed_code(self.generation, name, self.last_solution)
         return feedback, fitness, error
 
     def construct_prompt(self, solution, feedback):
@@ -336,6 +336,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
         self.initialize()  # Initialize a population
+        if self.log:
+            self.logger.log_population(self.population)
 
         def evolve_solution(individual):
             """
@@ -345,6 +347,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             new_prompt = self.construct_prompt(
                 individual["solution"], individual["feedback"]
             )
+            solution = ""
+            name = ""
             try:
                 solution, name, algorithm_name_long = self.llm(new_prompt)
                 feedback, fitness, error = self.evaluate_fitness(
@@ -360,6 +364,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 feedback = f"An exception occurred: {error}."
 
             return {
+                "name": name,
                 "solution": solution,
                 "fitness": fitness,
                 "error": error,
@@ -376,6 +381,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 new_population = list(executor.map(evolve_solution, new_offspring))
             self.generation += self.n_offspring
+
+            if self.log:
+                self.logger.log_population(new_population)
 
             # Update population and the best solution
             self.population = self.selection(self.population, new_population)

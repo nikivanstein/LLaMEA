@@ -28,7 +28,6 @@ class ExperimentLogger:
         today = datetime.today().strftime("%m-%d_%H%M%S")
         dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)
-        os.mkdir(f"{dirname}/ioh")
         os.mkdir(f"{dirname}/code")
         return dirname
 
@@ -47,6 +46,15 @@ class ExperimentLogger:
         }
         with jsonlines.open(f"{self.dirname}/conversationlog.jsonl", "a") as file:
             file.write(conversation_object)
+
+    def set_attempt(self, attempt):
+        self.attempt = attempt
+
+    def log_population(self, population):
+        for p in population:
+            self.log_code(self.attempt, p["name"], p["solution"])
+            self.log_aucs(self.attempt, [p["fitness"]])
+            self.attempt += 1
 
     def log_code(self, attempt, algorithm_name, code):
         """
