@@ -129,12 +129,13 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             """
             solution = ""
             name = ""
+            complete_message = ""
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {"role": "user", "content": self.task_prompt},
             ]
             try:
-                solution, name, algorithm_name_long = self.llm(session_messages)
+                solution, name, algorithm_name_long, complete_message = self.llm(session_messages)
                 feedback, fitness, error = self.evaluate_fitness(
                     solution, name, algorithm_name_long
                 )
@@ -154,6 +155,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 "fitness": fitness,
                 "error": error,
                 "feedback": feedback,
+                "complete_message": complete_message,
             }
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -173,7 +175,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             session_messages (list): A list of dictionaries with keys 'role' and 'content' to simulate a conversation with the language model.
 
         Returns:
-            tuple: A tuple containing the new algorithm code, its class name, and its full descriptive name.
+            tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and the complete message.
 
         Raises:
             NoCodeException: If the language model fails to return any code.
@@ -196,9 +198,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         algorithm_name_long = self.extract_algorithm_name(message)
         if algorithm_name_long == "":
             algorithm_name_long = algorithm_name
-            
+
         # extract algorithm name and algorithm
-        return new_algorithm, algorithm_name, algorithm_name_long
+        return new_algorithm, algorithm_name, algorithm_name_long, message
 
     def evaluate_fitness(self, solution, name, long_name):
         """
@@ -347,8 +349,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             )
             solution = ""
             name = ""
+            complete_message = ""
             try:
-                solution, name, algorithm_name_long = self.llm(new_prompt)
+                solution, name, algorithm_name_long, complete_message = self.llm(new_prompt)
                 feedback, fitness, error = self.evaluate_fitness(
                     solution, name, algorithm_name_long
                 )
@@ -367,6 +370,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 "fitness": fitness,
                 "error": error,
                 "feedback": feedback,
+                "complete_message": complete_message,
             }
 
         while self.generation < self.budget:

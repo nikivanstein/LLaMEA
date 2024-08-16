@@ -29,6 +29,7 @@ class ExperimentLogger:
         dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)
         os.mkdir(f"{dirname}/code")
+        os.mkdir(f"{dirname}/fail")
         return dirname
 
     def log_conversation(self, role, content):
@@ -55,6 +56,13 @@ class ExperimentLogger:
             self.log_code(self.attempt, p["name"], p["solution"])
             self.log_aucs(self.attempt, [p["fitness"]])
             self.attempt += 1
+
+            if p["fitness"] == -np.Inf and p["complete_message"] != "":
+                name = p["name"]
+                with open(
+                    f"{self.dirname}/fail/{self.attempt}-{name}.txt", "w"
+                ) as file:
+                    file.write(p["complete_message"])
 
     def log_code(self, attempt, algorithm_name, code):
         """

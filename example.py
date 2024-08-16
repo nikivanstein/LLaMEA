@@ -8,7 +8,7 @@ from llamea import LLaMEA
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "codellama:7b" # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-experiment_name ="pop5-8"
+experiment_name ="pop10-50"
 
 
 def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
@@ -18,12 +18,13 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
     exec(code, globals())
     
     error = ""
-    l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    
     aucs = []
     detail_aucs = []
     algorithm = None
     for dim in [5]:
         budget = 2000 * dim
+        l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
         for fid in np.arange(1,25):
             for iid in [1,2,3]: #, 4, 5]
                 problem = get_problem(fid, iid, dim)
