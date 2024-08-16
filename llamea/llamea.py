@@ -2,10 +2,12 @@
 This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
+import json
 import re
 import traceback
 
 import numpy as np
+from ConfigSpace import ConfigSpace
 
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
@@ -27,6 +29,7 @@ class LLaMEA:
         task_prompt="",
         experiment_name="",
         elitism=False,
+        HPO=False,
         feedback_prompt="",
         budget=100,
         model="gpt-4-turbo",
@@ -42,6 +45,8 @@ class LLaMEA:
             task_prompt (str): A prompt describing the task for the language model to generate optimization algorithms.
             experiment_name (str): The name of the experiment for logging purposes.
             elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
+            HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
+                In case it is, a configuration space should be asked from the LLM as additional output in json format.
             feedback_prompt (str): Prompt to guide the model on how to provide feedback on the generated algorithms.
             budget (int): The number of generations to run the evolutionary algorithm.
             model (str): The model identifier from OpenAI or ollama to be used.
@@ -103,11 +108,36 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.last_solution = ""
         self.history = ""
         self.log = log
+        self.HPO = HPO
         if self.log:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"{modelname}-ES {experiment_name}")
         else:
             self.logger = None
+
+    def populate_individual(self, session_messages):
+        """
+        Populates an individual with the given prompt and evaluates its fitness.
+        """
+        try:
+            solution, name, algorithm_name_long, config_space = self.llm(
+                session_messages
+            )
+            self.last_solution = solution
+            (
+                self.last_feedback,
+                self.last_fitness,
+                self.last_error,
+            ) = self.evaluate_fitness(solution, name, algorithm_name_long, config_space)
+
+        except NoCodeException:
+            self.last_fitness = -np.Inf
+            self.last_feedback = "No code was extracted."
+        except Exception as e:
+            self.last_fitness = -np.Inf
+            self.last_error = repr(e) + traceback.format_exc()
+            self.last_feedback = f"An exception occured: {self.last_error}."
+            print(self.last_error)
 
     def initialize(self):
         """
@@ -118,25 +148,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},
         ]
+        self.populate_individual(session_messages)
 
-        try:
-            solution, name, algorithm_name_long = self.llm(session_messages)
-            self.last_solution = solution
-            (
-                self.last_feedback,
-                self.last_fitness,
-                self.last_error,
-            ) = self.evaluate_fitness(solution, name, algorithm_name_long)
-        except NoCodeException:
-            self.last_fitness = -np.Inf
-            self.last_feedback = "No code was extracted."
-        except Exception as e:
-            self.last_fitness = -np.Inf
-            self.last_error = repr(e) + traceback.format_exc()
-            self.last_feedback = f"An exception occured: {self.last_error}."
-            print(self.last_error)
         self.generation += 1
-
         self.best_solution = self.last_solution
         self.best_fitness = self.last_fitness
         self.best_error = self.last_error
@@ -150,7 +164,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             session_messages (list): A list of dictionaries with keys 'role' and 'content' to simulate a conversation with the language model.
 
         Returns:
-            tuple: A tuple containing the new algorithm code, its class name, and its full descriptive name.
+            tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and an optional configuration space object.
 
         Raises:
             NoCodeException: If the language model fails to return any code.
@@ -167,6 +181,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             self.logger.log_conversation(self.model, message)
         new_algorithm = self.extract_algorithm_code(message)
 
+        config_space = None
+        if self.HPO:
+            config_space = self.extract_configspace(message)
+
         algorithm_name = re.findall("class\\s*(\\w*)\\:", new_algorithm, re.IGNORECASE)[
             0
         ]
@@ -176,9 +194,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         # todo rename algorithm
         self.last_solution = message
         # extract algorithm name and algorithm
-        return new_algorithm, algorithm_name, algorithm_name_long
+        return new_algorithm, algorithm_name, algorithm_name_long, config_space
 
-    def evaluate_fitness(self, solution, name, long_name):
+    def evaluate_fitness(self, solution, name, long_name, config_space=None):
         """
         Evaluates the fitness of the provided solution by invoking the evaluation function `f`.
         This method handles error reporting and logs the feedback, fitness, and errors encountered.
@@ -187,6 +205,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             solution (str): The solution code to evaluate.
             name (str): The name of the algorithm.
             long_name (str): The full descriptive name of the algorithm.
+            config_space (ConfigSpace): An optional configuration space object to perform HPO on the algorithm.
 
         Returns:
             tuple: A tuple containing feedback (string), fitness (float), and error message (string).
@@ -194,7 +213,12 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         # Implement fitness evaluation and error handling logic.
         if self.log:
             self.logger.log_code(self.generation, name, solution)
-        feedback, fitness, error = self.f(solution, name, long_name, self.logger)
+        if self.HPO:
+            feedback, fitness, error = self.f(
+                solution, name, long_name, config_space, self.logger
+            )
+        else:
+            feedback, fitness, error = self.f(solution, name, long_name, self.logger)
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"
@@ -235,6 +259,29 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             self.best_solution = self.last_solution
             self.best_fitness = self.last_fitness
             self.best_error = self.last_error
+
+    def extract_configspace(self, message):
+        """
+        Extracts the configuration space definition in json from a given message string using regular expressions.
+
+        Args:
+            message (str): The message string containing the algorithm code.
+
+        Returns:
+            ConfigSpace: Extracted configuration space object.
+        """
+        pattern = r"```(?:json)?\n(.*?)\n```"
+        match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
+        c = None
+        if match:
+            # try to parse if there are more groups
+            for group in match.groups:
+                print(group)
+                try:
+                    c = ConfigSpace(json.loads(group))
+                except Exception:
+                    pass
+        return c
 
     def extract_algorithm_code(self, message):
         """
@@ -286,24 +333,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.initialize()
         while self.generation < self.budget:
             new_prompt = self.construct_prompt()
-            try:
-                self.last_solution, name, algorithm_name_long = self.llm(new_prompt)
-                (
-                    self.last_feedback,
-                    self.last_fitness,
-                    self.last_error,
-                ) = self.evaluate_fitness(self.last_solution, name, algorithm_name_long)
-            except NoCodeException:
-                self.last_fitness = -np.Inf
-                self.last_feedback = "No code was extracted."
-                self.last_error = (
-                    "The code should be encapsulated with ``` in your response."
-                )
-            except Exception as e:
-                self.last_fitness = -np.Inf
-                self.last_error = repr(e)
-                self.last_feedback = f"An exception occured: {self.last_error}."
-
+            self.populate_individual(new_prompt)
             self.update_best()
             self.generation = self.generation + 1
 
