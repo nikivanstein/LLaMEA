@@ -111,7 +111,7 @@ def evaluateBBOBWithHPO(
 
 role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
 task_prompt = """
-The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim, <other_args>)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function with optional additional arguments and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
 An example of such code (a simple random search), is as follows:
 ```python
@@ -136,7 +136,7 @@ class RandomSearch:
         return self.f_opt, self.x_opt
 ```
 
-In addition, any hyper-parameters the algorithm uses will be optimized by SMAC, for this, provide a Configuration space in json format and include all hyper-parameters in the __init__ function header.
+In addition, any hyper-parameters the algorithm uses will be optimized by SMAC, for this, provide a Configuration space in json format (without the dim and budget parameters) and include all hyper-parameters in the __init__ function header.
 An example configuration space is as follows:
 
 ```json

@@ -7,7 +7,7 @@ import re
 import traceback
 
 import numpy as np
-from ConfigSpace import ConfigSpace
+from ConfigSpace import ConfigurationSpace
 
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
@@ -185,9 +185,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         if self.HPO:
             config_space = self.extract_configspace(message)
 
-        algorithm_name = re.findall("class\\s*(\\w*)\\:", new_algorithm, re.IGNORECASE)[
-            0
-        ]
+        algorithm_name = re.findall(
+            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_algorithm, re.IGNORECASE
+        )[0]
         algorithm_name_long = self.extract_algorithm_name(message)
         if algorithm_name_long == "":
             algorithm_name_long = algorithm_name
@@ -214,6 +214,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         if self.log:
             self.logger.log_code(self.generation, name, solution)
         if self.HPO:
+            if self.log:
+                self.logger.log_configspace(self.generation, name, config_space)
             feedback, fitness, error = self.f(
                 solution, name, long_name, config_space, self.logger
             )
@@ -270,17 +272,16 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         Returns:
             ConfigSpace: Extracted configuration space object.
         """
-        pattern = r"```(?:json)?\n(.*?)\n```"
-        match = re.search(pattern, message, re.DOTALL | re.IGNORECASE)
+        print("Extracting configuration space")
+        pattern = r"```\n*json\n(.*?)\n```"
         c = None
-        if match:
-            # try to parse if there are more groups
-            for group in match.groups:
-                print(group)
-                try:
-                    c = ConfigSpace(json.loads(group))
-                except Exception:
-                    pass
+        for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
+            print("group", m.group(1))
+            try:
+                c = ConfigurationSpace(eval(m.group(1)))
+            except Exception as e:
+                print(e.with_traceback)
+                pass
         return c
 
     def extract_algorithm_code(self, message):

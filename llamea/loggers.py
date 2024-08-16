@@ -3,6 +3,7 @@ from datetime import datetime
 
 import jsonlines
 import numpy as np
+from ConfigSpace.read_and_write import json as cs_json
 
 
 class ExperimentLogger:
@@ -28,7 +29,7 @@ class ExperimentLogger:
         today = datetime.today().strftime("%m-%d_%H%M%S")
         dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)
-        os.mkdir(f"{dirname}/ioh")
+        os.mkdir(f"{dirname}/configspace")
         os.mkdir(f"{dirname}/code")
         return dirname
 
@@ -61,6 +62,24 @@ class ExperimentLogger:
             f"{self.dirname}/code/try-{attempt}-{algorithm_name}.py", "w"
         ) as file:
             file.write(code)
+        self.attempt = attempt
+
+    def log_configspace(self, attempt, algorithm_name, config_space):
+        """
+        Logs the provided configuration space (str) into a file, uniquely named based on the attempt number and algorithm name.
+
+        Args:
+            attempt (int): The attempt number of the code execution.
+            algorithm_name (str): The name of the algorithm used.
+            config_space (ConfigSpace): The Config space to be logged.
+        """
+        with open(
+            f"{self.dirname}/configspace/try-{attempt}-{algorithm_name}.py", "w"
+        ) as file:
+            if config_space != None:
+                file.write(cs_json.write(config_space))
+            else:
+                file.write("Failed to extract config space")
         self.attempt = attempt
 
     def log_aucs(self, aucs):
