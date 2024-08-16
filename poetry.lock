@@ -527,6 +527,29 @@ traitlets = ">=4"
 test = ["pytest"]
 
 [[package]]
+name = "configspace"
+version = "1.2.0"
+description = "Creation and manipulation of parameter configuration spaces for automated algorithm configuration and hyperparameter tuning."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "configspace-1.2.0.tar.gz", hash = "sha256:d23fa9006a768266af539946d61c3cc5b59662286185333baf57fc0313850ab1"},
+]
+
+[package.dependencies]
+more_itertools = "*"
+numpy = "*"
+pyparsing = "*"
+scipy = "*"
+typing_extensions = "*"
+
+[package.extras]
+dev = ["ConfigSpace[docs,test,tooling]"]
+docs = ["black", "cairosvg", "markdown-exec[ansi]", "mike", "mkdocs", "mkdocs-autorefs", "mkdocs-gen-files", "mkdocs-glightbox", "mkdocs-literate-nav", "mkdocs-material", "mkdocstrings[python]", "pillow"]
+test = ["pytest (>=7)", "pytest-cov", "pytest_cases"]
+tooling = ["mypy", "pre-commit", "ruff", "types-pyyaml"]
+
+[[package]]
 name = "contourpy"
 version = "1.1.0"
 description = "Python library for calculating contours of 2D quadrilateral grids"
@@ -2087,6 +2110,17 @@ python-versions = ">=3.7"
 files = [
     {file = "mistune-3.0.2-py3-none-any.whl", hash = "sha256:71481854c30fdbc938963d3605b72501f5c10a9320ecd412c121c163a1c7d205"},
     {file = "mistune-3.0.2.tar.gz", hash = "sha256:fc7f93ded930c92394ef2cb6f04a8aabab4117a91449e72dcc8dfa646a508be8"},
+]
+
+[[package]]
+name = "more-itertools"
+version = "10.4.0"
+description = "More routines for operating on iterables, beyond itertools"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "more-itertools-10.4.0.tar.gz", hash = "sha256:fe0e63c4ab068eac62410ab05cccca2dc71ec44ba8ef29916a0090df061cf923"},
+    {file = "more_itertools-10.4.0-py3-none-any.whl", hash = "sha256:0f7d9f83a0a8dcfa8a2694a770590d98a67ea943e3d9f5298309a484758c4e27"},
 ]
 
 [[package]]
@@ -3906,4 +3940,4 @@ six = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "36e20bc896a354dc407bb706c763f76456b6819d17f1074e2b28edf1b8c51aed"
+content-hash = "203f3a1ad5fe97f42629c74d74c523a79b446c10591b945e770df454eb41fb9a"
