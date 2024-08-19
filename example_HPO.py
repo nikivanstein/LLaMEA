@@ -10,6 +10,13 @@ api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "codellama:7b"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
 experiment_name = "HPO"
 
+from itertools import product
+from ConfigSpace import Configuration, ConfigurationSpace
+
+import numpy as np
+from smac import Scenario
+from smac import AlgorithmConfigurationFacade
+
 
 def evaluateBBOBWithHPO(
     code, algorithm_name, algorithm_name_long, configuration_space=None, explogger=None
@@ -69,39 +76,51 @@ def evaluateBBOBWithHPO(
 
     exec(code, globals())
 
-    if configuration_space != None:
+    if configuration_space is None:
         # implement HPO with SMAC
-        pass
+        raise ValueError
 
     budget = 10000
+    dim = 5
     error = ""
-    l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
-    detail_aucs = []
     algorithm = None
-    for dim in [5]:
-        for fid in np.arange(1, 25):
-            for iid in [1, 2, 3]:  # , 4, 5]
-                problem = get_problem(fid, iid, dim)
-                problem.attach_logger(l2)
 
-                for rep in range(3):
-                    np.random.seed(rep)
-                    try:
-                        # Todo insert hyper-parameters here as well after HPO
-                        algorithm = globals()[algorithm_name](budget=budget, dim=dim)
-                        algorithm(problem)
-                    except OverBudgetException:
-                        pass
+    def get_bbob_performance(config: Configuration, instance: str, seed: int = 0):
+        np.random.seed(seed)
+        fid, iid = instance.split(",")
+        fid = int(fid[1:])
+        iid = int(iid[:-1])
+        problem = get_problem(fid, iid, dim)
+        l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
+        problem.attach_logger(l2)
+        try:
+            algorithm = globals()[algorithm_name](
+                budget=budget, dim=dim, **dict(config)
+            )
+            algorithm(problem)
+        except:
+            print(problem.state, budget)
+        auc = correct_aoc(problem, l2, budget)
+        return 1 - auc
 
-                    auc = correct_aoc(problem, l2, budget)
-                    aucs.append(auc)
-                    detail_aucs.append(auc)
-                    l2.reset(problem)
-                    problem.reset()
+    args = list(product(range(1, 25), range(1, 100)))
+    np.random.shuffle(args)
+    inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
+    # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
+    scenario = Scenario(
+        configuration_space,
+        deterministic=False,
+        min_budget=24,
+        max_budget=2400,
+        n_trials=2000,
+        instances=args,
+        instance_features=inst_feats,
+    )
+    smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance)
+    incumbent = smac.optimize()
+    auc_mean = 1 - smac.validate(incumbent)
 
-    auc_mean = np.mean(aucs)
-    auc_std = np.std(aucs)
     if explogger != None:
         explogger.log_aucs(aucs)
     feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
