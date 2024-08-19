@@ -104,7 +104,7 @@ def evaluateBBOBWithHPO(
         auc = correct_aoc(problem, l2, budget)
         return 1 - auc
 
-    args = list(product(range(1, 25), range(1, 100)))
+    args = list(product(range(1, 25), range(1, 4)))
     np.random.shuffle(args)
     inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
@@ -113,17 +113,18 @@ def evaluateBBOBWithHPO(
         deterministic=False,
         min_budget=24,
         max_budget=2400,
-        n_trials=2000,
+        n_trials=5000,
         instances=args,
         instance_features=inst_feats,
+        n_workers=10
     )
     smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance)
     incumbent = smac.optimize()
     auc_mean = 1 - smac.validate(incumbent)
-
+    dict_hyperparams = dict(incumbent)
     if explogger != None:
         explogger.log_aucs(aucs)
-    feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
+    feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
     print(algorithm_name_long, algorithm, auc_mean, auc_std)
     return feedback, auc_mean, error
 
