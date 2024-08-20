@@ -5,6 +5,7 @@ import jsonlines
 import numpy as np
 from ConfigSpace.read_and_write import json as cs_json
 
+
 def convert_to_serializable(data):
     if isinstance(data, dict):
         return {key: convert_to_serializable(value) for key, value in data.items()}
@@ -16,6 +17,7 @@ def convert_to_serializable(data):
         return float(data)
     else:
         return data
+
 
 class ExperimentLogger:
     def __init__(self, name=""):
