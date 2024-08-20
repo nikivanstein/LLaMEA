@@ -77,12 +77,6 @@ def evaluateBBOBWithHPO(
     auc_std = 0
 
     exec(code, globals())
-
-    if configuration_space is None:
-        # No HPO possible
-        return "No evaluation was possible because the configuration space could not be parsed.", 0.0, "The configuration space was not properly formatted.", {}
-
-    
     dim = 5
     budget = 2000 * dim
     error = ""
@@ -124,23 +118,29 @@ def evaluateBBOBWithHPO(
     np.random.shuffle(args)
     inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
-    scenario = Scenario(
-        configuration_space,
-        name=algorithm_name,
-        deterministic=False,
-        min_budget=12,
-        max_budget=200,
-        n_trials=2000,
-        instances=args,
-        instance_features=inst_feats,
-        output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
-        #n_workers=10
-    )
-    smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance)
-    incumbent = smac.optimize()
+    error = ""
+    if configuration_space is None:
+        # No HPO possible, evaluate only the default
+        incumbent = {}
+        error = "The configuration space was not properly formatted or not present in your answer. The evaluation was done on the default configuration."
+    else:
+        scenario = Scenario(
+            configuration_space,
+            name=algorithm_name,
+            deterministic=False,
+            min_budget=12,
+            max_budget=200,
+            n_trials=2000,
+            instances=args,
+            instance_features=inst_feats,
+            output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
+            #n_workers=10
+        )
+        smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance)
+        incumbent = smac.optimize()
 
     # last but not least, perform the final validation
-    error = ""
+    
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
     aucs = []
     for fid in np.arange(1, 25):
@@ -226,6 +226,7 @@ for experiment_i in [1]:
         evaluateBBOBWithHPO,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
+        feedback_prompt=feedback_prompt,
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,
