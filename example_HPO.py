@@ -79,8 +79,8 @@ def evaluateBBOBWithHPO(
     exec(code, globals())
 
     if configuration_space is None:
-        # implement HPO with SMAC
-        raise ValueError
+        # No HPO possible
+        return "No evaluation was possible because the configuration space could not be parsed.", 0.0, "The configuration space was not properly formatted.", {}
 
     
     dim = 5
@@ -128,9 +128,9 @@ def evaluateBBOBWithHPO(
         configuration_space,
         name=algorithm_name,
         deterministic=False,
-        min_budget=24,
-        max_budget=2400,
-        n_trials=1000,
+        min_budget=12,
+        max_budget=200,
+        n_trials=2000,
         instances=args,
         instance_features=inst_feats,
         output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
@@ -150,7 +150,7 @@ def evaluateBBOBWithHPO(
             for rep in range(3):
                 np.random.seed(rep)
                 try:
-                    algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+                    algorithm = globals()[algorithm_name](budget=budget, dim=dim, **dict(incumbent))
                     algorithm(problem)
                 except OverBudgetException:
                     pass
