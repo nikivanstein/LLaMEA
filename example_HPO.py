@@ -82,12 +82,24 @@ def evaluateBBOBWithHPO(
         # implement HPO with SMAC
         raise ValueError
 
-    budget = 100
+    
     dim = 5
+    budget = 2000 * dim
     error = ""
-    aucs = []
     algorithm = None
 
+
+    # perform a small run to check for any code errors
+    l2_temp = aoc_logger(100, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    problem = get_problem(11, 1, dim)
+    problem.attach_logger(l2_temp)
+    try:
+        algorithm = globals()[algorithm_name](budget=100, dim=dim)
+        algorithm(problem)
+    except OverBudgetException:
+        pass
+
+    # now optimize the hyper-parameters
     def get_bbob_performance(config: Configuration, instance: str, seed: int = 0):
         np.random.seed(seed)
         fid, iid = instance.split(",")
@@ -101,8 +113,10 @@ def evaluateBBOBWithHPO(
                 budget=budget, dim=dim, **dict(config)
             )
             algorithm(problem)
-        except:
-            print(problem.state, budget)
+        except OverBudgetException:
+            pass
+        except Exception as e:
+            print(problem.state, budget, e)
         auc = correct_aoc(problem, l2, budget)
         return 1 - auc
 
@@ -112,20 +126,42 @@ def evaluateBBOBWithHPO(
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
     scenario = Scenario(
         configuration_space,
+        name=algorithm_name,
         deterministic=False,
         min_budget=24,
         max_budget=2400,
-        n_trials=5000,
+        n_trials=1000,
         instances=args,
         instance_features=inst_feats,
-        n_workers=10
+        output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
+        #n_workers=10
     )
     smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance)
     incumbent = smac.optimize()
-    auc_mean = 1 - smac.validate(incumbent)
+
+    # last but not least, perform the final validation
+    error = ""
+    l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    aucs = []
+    for fid in np.arange(1, 25):
+        for iid in [1, 2, 3]:  # , 4, 5]
+            problem = get_problem(fid, iid, dim)
+            problem.attach_logger(l2)
+            for rep in range(3):
+                np.random.seed(rep)
+                try:
+                    algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+                    algorithm(problem)
+                except OverBudgetException:
+                    pass
+                auc = correct_aoc(problem, l2, budget)
+                aucs.append(auc)
+                l2.reset(problem)
+                problem.reset()
+
+    auc_mean = np.mean(aucs)
+    auc_std = np.std(aucs)
     dict_hyperparams = dict(incumbent)
-    if explogger != None:
-        explogger.log_aucs(aucs)
     feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
     print(algorithm_name_long, algorithm, auc_mean, auc_std)
 

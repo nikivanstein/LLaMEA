@@ -12,7 +12,7 @@ experiment_name = "elitism"
 
 
 def evaluateBBOB(
-    code, algorithm_name, algorithm_name_long, details=False
+    code, algorithm_name, algorithm_name_long, details=False, explogger=None
 ):
     auc_mean = 0
     auc_std = 0

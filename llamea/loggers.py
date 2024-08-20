@@ -5,6 +5,17 @@ import jsonlines
 import numpy as np
 from ConfigSpace.read_and_write import json as cs_json
 
+def convert_to_serializable(data):
+    if isinstance(data, dict):
+        return {key: convert_to_serializable(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_to_serializable(item) for item in data]
+    elif isinstance(data, np.integer):
+        return int(data)
+    elif isinstance(data, np.floating):
+        return float(data)
+    else:
+        return data
 
 class ExperimentLogger:
     def __init__(self, name=""):
@@ -57,7 +68,7 @@ class ExperimentLogger:
             others (dict): Stuff to be logged.
         """
         with jsonlines.open(f"{self.dirname}/log.jsonl", "a") as file:
-            file.write(others)
+            file.write(convert_to_serializable(others))
 
     def log_code(self, attempt, algorithm_name, code):
         """
