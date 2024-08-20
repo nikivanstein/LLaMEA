@@ -12,7 +12,7 @@ experiment_name = "elitism"
 
 
 def evaluateBBOB(
-    code, algorithm_name, algorithm_name_long, explogger=None, details=False
+    code, algorithm_name, algorithm_name_long, details=False
 ):
     auc_mean = 0
     auc_std = 0
@@ -61,8 +61,6 @@ def evaluateBBOB(
 
     auc_mean = np.mean(aucs)
     auc_std = np.std(aucs)
-    if explogger != None:
-        explogger.log_aucs(aucs)
     feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
     if details:
         feedback = (
@@ -74,7 +72,9 @@ def evaluateBBOB(
         )
 
     print(algorithm_name_long, algorithm, auc_mean, auc_std)
-    return feedback, auc_mean, error
+    complete_log = {"aucs": aucs}
+
+    return feedback, auc_mean, error, complete_log
 
 
 for experiment_i in [1, 2, 3, 4, 5]:

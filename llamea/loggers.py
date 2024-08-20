@@ -49,6 +49,16 @@ class ExperimentLogger:
         with jsonlines.open(f"{self.dirname}/conversationlog.jsonl", "a") as file:
             file.write(conversation_object)
 
+    def log_others(self, others):
+        """
+        Logs the given dictionary in a general logfile.
+
+        Args:
+            others (dict): Stuff to be logged.
+        """
+        with jsonlines.open(f"{self.dirname}/log.jsonl", "a") as file:
+            file.write(others)
+
     def log_code(self, attempt, algorithm_name, code):
         """
         Logs the provided code into a file, uniquely named based on the attempt number and algorithm name.
@@ -81,13 +91,3 @@ class ExperimentLogger:
             else:
                 file.write("Failed to extract config space")
         self.attempt = attempt
-
-    def log_aucs(self, aucs):
-        """
-        Logs the given AOCCs (Area Over the Convergence Curve, named here auc) into a file, named based on the attempt number.
-
-        Args:
-            attempt (int): The attempt number corresponding to the AOCCs.
-            aucs (array_like): An array of AUC scores to be saved.
-        """
-        np.savetxt(f"{self.dirname}/try-{self.attempt}-aucs.txt", aucs)

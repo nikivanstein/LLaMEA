@@ -7,8 +7,8 @@ from llamea import LLaMEA
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "codellama:7b"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
-experiment_name = "HPO"
+ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
+experiment_name = "gpt-4o-HPO"
 
 from itertools import product
 from ConfigSpace import Configuration, ConfigurationSpace
@@ -49,6 +49,8 @@ def evaluateBBOBWithHPO(
         The mean AOCC score across all evaluated problems and repetitions.
     error : str
         A placeholder for error messages, currently not implemented or utilized.
+    complete_log: dict
+        A dictionary that will be logged to file, to be able to analyze the results afterwards.
 
     Functionality:
     --------------
@@ -69,7 +71,7 @@ def evaluateBBOBWithHPO(
 
     Example:
     --------
-    feedback, auc_mean, error = evaluateBBOB("import numpy as np", "MyAlgorithm", "My Custom Algorithm")
+    feedback, auc_mean, error, complete_log = evaluateBBOB("import numpy as np", "MyAlgorithm", "My Custom Algorithm")
     """
     auc_mean = 0
     auc_std = 0
@@ -80,7 +82,7 @@ def evaluateBBOBWithHPO(
         # implement HPO with SMAC
         raise ValueError
 
-    budget = 10000
+    budget = 100
     dim = 5
     error = ""
     aucs = []
@@ -126,7 +128,10 @@ def evaluateBBOBWithHPO(
         explogger.log_aucs(aucs)
     feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
     print(algorithm_name_long, algorithm, auc_mean, auc_std)
-    return feedback, auc_mean, error
+
+    complete_log = {"aucs": aucs, "incumbent": dict_hyperparams}
+    
+    return feedback, auc_mean, error, complete_log
 
 
 role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."

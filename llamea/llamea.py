@@ -213,14 +213,26 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         # Implement fitness evaluation and error handling logic.
         if self.log:
             self.logger.log_code(self.generation, name, solution)
+        complete_log = {}
         if self.HPO:
             if self.log:
                 self.logger.log_configspace(self.generation, name, config_space)
-            feedback, fitness, error = self.f(
+            feedback, fitness, error, complete_log = self.f(
                 solution, name, long_name, config_space, self.logger
             )
         else:
-            feedback, fitness, error = self.f(solution, name, long_name, self.logger)
+            feedback, fitness, error, complete_log = self.f(
+                solution, name, long_name, self.logger
+            )
+        if self.log:
+            complete_log["_generation"] = self.generation
+            complete_log["_name"] = name
+            complete_log["_fitness"] = fitness
+            complete_log["_error"] = error
+            complete_log["_feedback"] = feedback
+            complete_log["_solution"] = solution
+            complete_log["_long_name"] = long_name
+            self.logger.log_others(complete_log)
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"

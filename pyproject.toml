@@ -24,6 +24,7 @@ pypop7 = "^0.0.79"
 ollama = "^0.2.1"
 jsonlines = "^4.0.0"
 configspace = "^1.2.0"
+smac = "^2.2.0"
 
 [tool.poetry.dev-dependencies]
 black = "^23.11.0"
