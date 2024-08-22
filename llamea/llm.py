@@ -2,6 +2,7 @@
 """
 import ollama
 import openai
+import google.generativeai as genai
 
 
 class LLMmanager:
@@ -19,6 +20,23 @@ class LLMmanager:
         self.model = model
         if "gpt" in self.model:
             self.client = openai.OpenAI(api_key=api_key)
+        if "gemini" in self.model:
+            genai.configure(api_key=api_key)
+            generation_config = {
+                "temperature": 1,
+                "top_p": 0.95,
+                "top_k": 64,
+                "max_output_tokens": 8192,
+                "response_mime_type": "text/plain",
+            }
+
+            self.client = genai.GenerativeModel(
+                model_name=self.model, #"gemini-1.5-flash",
+                generation_config=generation_config,
+                # safety_settings = Adjust safety settings
+                # See https://ai.google.dev/gemini-api/docs/safety-settings
+                system_instruction="You are a computer scientist and excellent Python programmer.",
+            )
 
     def chat(self, session_messages):
         if "gpt" in self.model:
@@ -26,6 +44,19 @@ class LLMmanager:
                 model=self.model, messages=session_messages, temperature=0.8
             )
             return response.choices[0].message.content
+        elif "gemini" in self.model:
+            history = []
+            last = session_messages.pop()
+            for msg in session_messages:
+                history.append({
+                    "role": msg["role"],
+                    "parts": [
+                        msg["content"],
+                    ],
+                })
+            chat_session = self.client.start_chat(history=history)
+            response = chat_session.send_message(last["content"])
+            return response.text
         else:
             # first concatenate the session messages
             big_message = ""

@@ -7,8 +7,10 @@ from llamea import LLaMEA
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
+ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash 
 experiment_name = "gpt-4o-HPO"
+if "gemini" in ai_model:
+    api_key = os.environ["GEMINI_API_KEY"]
 
 from itertools import product
 from ConfigSpace import Configuration, ConfigurationSpace

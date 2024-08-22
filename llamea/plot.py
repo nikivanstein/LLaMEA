@@ -23,7 +23,7 @@ def code_compare(code1, code2, printdiff=False):
     return 1 - similarity_ratio
 
 
-experiments = [["exp-08-20_103957-gpt-4o-2024-05-13-ES gpt-4o-HPO/log.jsonl"]]
+experiments = [["exp-08-20_122254-gpt-4o-2024-05-13-ES gpt-4o-HPO/log.jsonl", "exp-08-20_123922-gpt-4o-2024-05-13-ES gpt-4o-HPO/log.jsonl"]]
 budget = 100
 
 colors = ["b"]
@@ -35,16 +35,17 @@ for i in range(len(experiments)):
     color = colors[i]
     ls = linestyles[i]
     label = labels[i]
-    mean_aucs = []
-    current_best = 0
-    best_aucs = []
-    std_aucs = []
-    error_bars = []
-    best_try = ""
+    
 
     m_aucs = []
     log_i = 1
     for log_file in exp_logs:
+        mean_aucs = []
+        current_best = 0
+        best_aucs = []
+        std_aucs = []
+        error_bars = []
+        best_try = ""
         if os.path.exists(log_file):
             with jsonlines.open(log_file) as reader:
                 for obj in reader.iter(type=dict, skip_invalid=True):
