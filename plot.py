@@ -3,23 +3,43 @@ import numpy as np
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-import copy
-import tqdm
-import ast
 import difflib
-import jellyfish
 import jsonlines
 
+try:
+    from colorama import Fore, Back, Style, init
+    init()
+except ImportError:  # fallback so that the imported classes always exist
+    class ColorFallback():
+        __getattr__ = lambda self, name: ''
+    Fore = Back = Style = ColorFallback()
+
+def color_diff(diff):
+    for line in diff:
+        if line.startswith('+'):
+            yield Fore.GREEN + line + Fore.RESET
+        elif line.startswith('-'):
+            yield Fore.RED + line + Fore.RESET
+        elif line.startswith('^'):
+            yield Fore.BLUE + line + Fore.RESET
+        else:
+            yield line
 
 def code_compare(code1, code2, printdiff=False):
     # Parse the Python code into ASTs
     # Use difflib to find differences
     diff = difflib.ndiff(code1.splitlines(), code2.splitlines())
+    
     # Count the number of differing lines
     diffs = sum(1 for x in diff if x.startswith("- ") or x.startswith("+ "))
+    if printdiff and code1 != "":
+        diff = difflib.ndiff(code1.splitlines(), code2.splitlines())
+        print('\n'.join(color_diff(diff)))
     # Calculate total lines for the ratio
     total_lines = max(len(code1.splitlines()), len(code2.splitlines()))
     similarity_ratio = (total_lines - diffs) / total_lines if total_lines else 1
+    if printdiff:
+        print(similarity_ratio)
     return 1 - similarity_ratio
 
 
@@ -28,7 +48,7 @@ experiments_dirs = [
     "exp-08-20_123922-gpt-4o-2024-05-13-ES gpt-4o-HPO",
     "exp-08-26_090633-gpt-4o-2024-05-13-ES gpt-4o-HPO",
     "exp-08-26_090643-gpt-4o-2024-05-13-ES gpt-4o-HPO",
-    "exp-08-26_090744-gpt-4o-2024-05-13-ES gpt-4o-HPO",
+    "exp-08-26_095046-gpt-4o-2024-05-13-ES gpt-4o-HPO",
 ]
 budget = 100
 
@@ -43,6 +63,7 @@ for i in range(len(experiments_dirs)):
     code_diff_ratios = np.zeros(budget)
     best_so_far = -np.Inf
     previous_code = ""
+    previous_name = ""
     log_file = experiments_dirs[i] + "/log.jsonl"
     if os.path.exists(log_file):
         with jsonlines.open(log_file) as reader:
@@ -63,9 +84,12 @@ for i in range(len(experiments_dirs)):
                 if fitness <= best_so_far:
                     code_diff = code_compare(previous_code, code, False)
                 else:
+                    name = obj["_name"]
+                    print(f"-- {gen} -- {previous_name} --> {name}")
                     code_diff = code_compare(previous_code, code, True)
                     best_so_far = fitness
                     previous_code = code
+                    previous_name = name
                 code_diff_ratios[gen] = code_diff
                 convergence[gen] = fitness
 
