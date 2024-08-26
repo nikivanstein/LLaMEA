@@ -285,7 +285,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             ConfigSpace: Extracted configuration space object.
         """
         print("Extracting configuration space")
-        pattern = r"```\n*json\n(.*?)\n```"
+        pattern = r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
         c = None
         for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
             print("group", m.group(1))
