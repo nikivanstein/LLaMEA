@@ -31,7 +31,7 @@ class LLMmanager:
             }
 
             self.client = genai.GenerativeModel(
-                model_name=self.model, #"gemini-1.5-flash",
+                model_name=self.model,  # "gemini-1.5-flash",
                 generation_config=generation_config,
                 # safety_settings = Adjust safety settings
                 # See https://ai.google.dev/gemini-api/docs/safety-settings
@@ -48,12 +48,14 @@ class LLMmanager:
             history = []
             last = session_messages.pop()
             for msg in session_messages:
-                history.append({
-                    "role": msg["role"],
-                    "parts": [
-                        msg["content"],
-                    ],
-                })
+                history.append(
+                    {
+                        "role": msg["role"],
+                        "parts": [
+                            msg["content"],
+                        ],
+                    }
+                )
             chat_session = self.client.start_chat(history=history)
             response = chat_session.send_message(last["content"])
             return response.text

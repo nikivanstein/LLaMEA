@@ -23,11 +23,13 @@ def code_compare(code1, code2, printdiff=False):
     return 1 - similarity_ratio
 
 
-experiments_dirs = ["exp-08-20_122254-gpt-4o-2024-05-13-ES gpt-4o-HPO", #/log.jsonl
-                    "exp-08-20_123922-gpt-4o-2024-05-13-ES gpt-4o-HPO",
-                    "exp-08-26_090633-gpt-4o-2024-05-13-ES gpt-4o-HPO",
-                    "exp-08-26_090643-gpt-4o-2024-05-13-ES gpt-4o-HPO",
-                    "exp-08-26_090744-gpt-4o-2024-05-13-ES gpt-4o-HPO"]
+experiments_dirs = [
+    "exp-08-20_122254-gpt-4o-2024-05-13-ES gpt-4o-HPO",  # /log.jsonl
+    "exp-08-20_123922-gpt-4o-2024-05-13-ES gpt-4o-HPO",
+    "exp-08-26_090633-gpt-4o-2024-05-13-ES gpt-4o-HPO",
+    "exp-08-26_090643-gpt-4o-2024-05-13-ES gpt-4o-HPO",
+    "exp-08-26_090744-gpt-4o-2024-05-13-ES gpt-4o-HPO",
+]
 budget = 100
 
 label_main = "GPT-4o-HPO"
@@ -57,7 +59,7 @@ for i in range(len(experiments_dirs)):
                     fitness = obj["_fitness"]
                 else:
                     fitness = None
-                
+
                 if fitness <= best_so_far:
                     code_diff = code_compare(previous_code, code, False)
                 else:
@@ -67,10 +69,10 @@ for i in range(len(experiments_dirs)):
                 code_diff_ratios[gen] = code_diff
                 convergence[gen] = fitness
 
-    #now fix the holes
+    # now fix the holes
     best_so_far = 0
     for i in range(len(convergence)):
-        if (convergence[i] >= best_so_far):
+        if convergence[i] >= best_so_far:
             best_so_far = convergence[i]
         else:
             convergence[i] = best_so_far
@@ -78,11 +80,11 @@ for i in range(len(experiments_dirs)):
     code_diff_ratios_lines.append(code_diff_ratios)
 
 
-plt.figure(figsize=(6,4))
+plt.figure(figsize=(6, 4))
 for i in range(len(convergence_lines)):
     plt.plot(np.arange(budget), convergence_lines[i], linestyle="dashed")
 
-#convergence curves
+# convergence curves
 mean_convergence = np.array(convergence_lines).mean(axis=0)
 std = np.array(convergence_lines).std(axis=0)
 plt.plot(
@@ -108,10 +110,8 @@ plt.savefig(f"plot_aucs_HPO.png")
 plt.clf()
 
 
-
-
-#Code diff curves
-plt.figure(figsize=(6,4))
+# Code diff curves
+plt.figure(figsize=(6, 4))
 for i in range(len(code_diff_ratios_lines)):
     plt.plot(np.arange(budget), code_diff_ratios_lines[i], linestyle="dashed")
 
