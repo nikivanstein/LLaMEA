@@ -96,7 +96,7 @@ for i in range(len(experiments_dirs)):
 
                     #check optimized fitness against plain fitness
                     if True:
-                        l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
+                        l2 = aoc_logger(10000, upper=1e2, triggers=[logger.trigger.ALWAYS])
                         aucs = []
                         exec(code, globals())
                         for fid in np.arange(1, 25):
@@ -148,6 +148,8 @@ for i in range(len(convergence_lines)):
     plt.plot(np.arange(budget), convergence_default_lines[i], linestyle="dotted")
 
 # convergence curves
+
+np.save("HPOconvergence_lines.npy", convergence_lines)
 mean_convergence = np.array(convergence_lines).mean(axis=0)
 mean_convergence_default = np.array(convergence_default_lines).mean(axis=0)
 std = np.array(convergence_lines).std(axis=0)
@@ -178,7 +180,6 @@ plt.xlim(0, 100)
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"plot_aucs_HPO.png")
-plt.clf()
 
 
 # Code diff curves

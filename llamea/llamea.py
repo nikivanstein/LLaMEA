@@ -5,13 +5,14 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 import json
 import re
 import traceback
+import signal
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
-from .utils import NoCodeException
+from .utils import NoCodeException, handle_timeout
 
 
 class LLaMEA:
@@ -33,6 +34,7 @@ class LLaMEA:
         feedback_prompt="",
         budget=100,
         model="gpt-4-turbo",
+        eval_timeout=3600,
         log=True,
     ):
         """
@@ -50,11 +52,13 @@ class LLaMEA:
             feedback_prompt (str): Prompt to guide the model on how to provide feedback on the generated algorithms.
             budget (int): The number of generations to run the evolutionary algorithm.
             model (str): The model identifier from OpenAI or ollama to be used.
+            eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             log (bool): Flag to switch of the logging of experiments.
         """
         self.client = LLMmanager(api_key, model)
         self.api_key = api_key
         self.model = model
+        self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides a string as feedback, a numerical value (higher is better), and a possible error string.
         self.role_prompt = role_prompt
         if role_prompt == "":
@@ -214,16 +218,28 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         if self.log:
             self.logger.log_code(self.generation, name, solution)
         complete_log = {}
-        if self.HPO:
-            if self.log:
-                self.logger.log_configspace(self.generation, name, config_space)
-            feedback, fitness, error, complete_log = self.f(
-                solution, name, long_name, config_space, self.logger
-            )
-        else:
-            feedback, fitness, error, complete_log = self.f(
-                solution, name, long_name, self.logger
-            )
+
+        signal.signal(signal.SIGALRM, handle_timeout)
+        signal.alarm(self.eval_timeout)
+        try:
+            if self.HPO:
+                if self.log:
+                    self.logger.log_configspace(self.generation, name, config_space)
+                feedback, fitness, error, complete_log = self.f(
+                    solution, name, long_name, config_space, self.logger
+                )
+            else:
+                feedback, fitness, error, complete_log = self.f(
+                    solution, name, long_name, self.logger
+                )
+        except TimeoutError:
+            print("It took too long to finish the evaluation")
+            feedback = "The evaluation took too long."
+            fitness = 0.0
+            error = "The evaluation took too long."
+        finally:
+            signal.alarm(0)
+
         if self.log:
             complete_log["_generation"] = self.generation
             complete_log["_name"] = name
