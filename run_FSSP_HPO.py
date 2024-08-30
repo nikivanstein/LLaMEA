@@ -41,7 +41,7 @@ def evaluateWithHPO(
 
                 return jssp_prob.gls(alg)
         except Exception as e:
-            return None
+            return 10000000000
     
     
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
@@ -67,7 +67,7 @@ def evaluateWithHPO(
 
     fitness = -1 * fitness #we optimize (not minimize)
     dict_hyperparams = dict(incumbent)
-    feedback = f"The heuristic {algorithm_name_long} got an average fitness of {fitness:0.2f} (bigger is better) with optimal hyperparameters {dict_hyperparams}."
+    feedback = f"The heuristic {algorithm_name_long} got an average fitness of {fitness:0.2f} (closer to zero is better) with optimal hyperparameters {dict_hyperparams}."
 
     complete_log = {"incumbent": dict_hyperparams}
     

@@ -132,6 +132,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 self.last_feedback,
                 self.last_fitness,
                 self.last_error,
+                complete_log,
             ) = self.evaluate_fitness(solution, name, algorithm_name_long, config_space)
 
         except NoCodeException:
@@ -142,6 +143,16 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             self.last_error = repr(e) + traceback.format_exc()
             self.last_feedback = f"An exception occured: {self.last_error}."
             print(self.last_error)
+        
+        if self.log:
+            complete_log["_generation"] = self.generation
+            complete_log["_name"] = name
+            complete_log["_fitness"] = self.last_fitness
+            complete_log["_error"] = self.last_error
+            complete_log["_feedback"] = self.last_feedback
+            complete_log["_solution"] = solution
+            complete_log["_long_name"] = algorithm_name_long
+            self.logger.log_others(complete_log)
 
     def initialize(self):
         """
@@ -235,24 +246,15 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         except TimeoutError:
             print("It took too long to finish the evaluation")
             feedback = "The evaluation took too long."
-            fitness = 0.0
+            fitness = -np.Inf
             error = "The evaluation took too long."
         finally:
             signal.alarm(0)
 
-        if self.log:
-            complete_log["_generation"] = self.generation
-            complete_log["_name"] = name
-            complete_log["_fitness"] = fitness
-            complete_log["_error"] = error
-            complete_log["_feedback"] = feedback
-            complete_log["_solution"] = solution
-            complete_log["_long_name"] = long_name
-            self.logger.log_others(complete_log)
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"
-        return feedback, fitness, error
+        return feedback, fitness, error, complete_log
 
     def construct_prompt(self):
         """
