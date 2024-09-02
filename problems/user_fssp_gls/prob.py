@@ -110,6 +110,57 @@ class JSSPGLS():
         return pi, cmax_old
 
     ############################################### Iterated Local Search ####################################################
+
+    def gls_instance(self,heuristic,seed):
+        random.seed(seed)
+        tasks_val, tasks, machines_val = random.choice(zip(self.tasks_val, self.tasks, self.machines_val))
+        cmax_best = 1E10
+        
+        #print("run ...")
+        try:
+            pi, cmax = self.neh(tasks, machines_val, tasks_val) 
+            n = len(pi)
+            
+            pi_best = pi
+            cmax_best = cmax
+            n_itr = 0
+            time_start = time.time()
+            while time.time() - time_start < self.time_max and n_itr <self.iter_max:
+                #piprim = local_search(pi, tasks_val)
+                piprim = local_search(pi, cmax,tasks,machines_val)
+
+                pi = piprim
+                cmax = makespan(pi, tasks, machines_val)
+                
+                if (cmax<cmax_best):
+                    pi_best = pi
+                    cmax_best = cmax
+
+                tasks_perturb, jobs = heuristic.get_matrix_and_jobs(pi, tasks.copy(), machines_val, n)
+
+                if ( len(jobs) <= 1):
+                    print("jobs is not a list of size larger than 1")          
+                    return 1E10   
+                if  ( len(jobs) > 5):
+                    jobs = jobs[:5]
+
+                cmax = makespan(pi, tasks_perturb, machines_val)
+
+                pi = local_search_perturb(pi, cmax,tasks_perturb,machines_val,jobs)
+
+                n_itr +=1
+                #print(f"it {n_itr} , cmax {cmax_best}")
+                if n_itr % 50 == 0:
+                    pi = pi_best
+                    cmax = cmax_best
+
+        except Exception as e:
+            #print("Error:", str(e))  # Print the error message
+            cmax_best = 1E10
+    
+        
+        return cmax_best
+
     def gls(self,heuristic):
 
         cmax_best_list = np.zeros(self.n_inst_eva)

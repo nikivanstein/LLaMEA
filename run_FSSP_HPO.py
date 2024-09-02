@@ -7,7 +7,7 @@ import warnings
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "FSSP-HPO"
+experiment_name = "FSSP-HPO-instance"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -39,6 +39,23 @@ def evaluateWithHPO(
                     **dict(config)
                 )
 
+                return jssp_prob.gls_instance(alg, seed)
+        except Exception as e:
+            return 10000000000
+        
+    def evaluateAll(config, seed=0):
+        np.random.seed(seed)
+        try:
+            # Suppress warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                
+                # Execute the code string in the new module's namespace
+                exec(code, globals())
+                alg = globals()[algorithm_name](
+                    **dict(config)
+                )
+
                 return jssp_prob.gls(alg)
         except Exception as e:
             return 10000000000
@@ -56,14 +73,16 @@ def evaluateWithHPO(
             configuration_space,
             #name=algorithm_name,
             deterministic=False,
-            n_trials=100,
+            n_trials=200,
+            min_budget = 1,
+            max_budget = 4,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
             #n_workers=10
         )
         smac = HyperparameterOptimizationFacade(scenario, evaluate)
         incumbent = smac.optimize()
         print(dict(incumbent))
-        fitness = evaluate(dict(incumbent))
+        fitness = evaluateAll(dict(incumbent))
 
     fitness = -1 * fitness #we optimize (not minimize)
     dict_hyperparams = dict(incumbent)
@@ -84,7 +103,6 @@ The heuristic algorithm class should contain two functions an "__init__()" funct
 The variable 'current_sequence' represents the current sequence of jobs. The variables 'm' and 'n' denote the number of machines and number of jobs, respectively.
 The variable 'time_matrix' is a matrix of size n*m that contains the execution time of each job on each machine. The output 'new_matrix' is the updated time matrix, and 'perturb_jobs' includes the top jobs to be perturbed."
 The matrix and job list are Numpy arrays.
-The novel function should be sufficiently complex in order to achieve better performance. It is important to ensure self-consistency.
 
 An example heuristic to show the structure is as follows.
 ```python
@@ -118,7 +136,7 @@ Give an excellent and novel heuristic including its configuration space to solve
 """
 
 feedback_prompt = (
-    f"Either refine or redesign to improve the solution (and give it a distinct name). Give the response in the format:\n"
+    f"Adapt or change your approach to design a new heuristic (and give it a distinct name). Give the response in the format:\n"
     f"# Name: <name>\n"
     f"# Code: <code>\n"
     f"# Space: <configuration_space>"

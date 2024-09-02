@@ -363,6 +363,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         """
         self.initialize()
         while self.generation < self.budget:
+            print(f"Generation {self.generation}")
             new_prompt = self.construct_prompt()
             self.populate_individual(new_prompt)
             self.update_best()

@@ -7,7 +7,7 @@ import warnings
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "BP-HPO-explore"
+experiment_name = "BP-HPO-long"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -55,15 +55,15 @@ def evaluateWithHPO(
         scenario = Scenario(
             configuration_space,
             #name=algorithm_name,
-            deterministic=False,
-            min_budget=None,
-            max_budget=None,
-            n_trials=100,
-            instances=None,
+            deterministic=True,
+            #min_budget=None,
+            #max_budget=None,
+            n_trials=1000,
+            #instances=None,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
             #n_workers=10
         )
-        smac = HyperparameterOptimizationFacade(scenario, evaluate)
+        smac = HyperparameterOptimizationFacade(scenario, evaluate, overwrite=True)
         incumbent = smac.optimize()
         print(dict(incumbent))
         fitness = evaluate(dict(incumbent))
@@ -119,7 +119,7 @@ Give an excellent and novel heuristic including its configuration space to solve
 """
 
 feedback_prompt = (
-    f"Try a completely new strategy that you have not tried before (and give it a distinct name). Give the response in the format:\n"
+    f"Adapt your strategy based on the best and previous tried solutions (and give it a distinct name). Give the response in the format:\n"
     f"# Name: <name>\n"
     f"# Code: <code>\n"
     f"# Space: <configuration_space>"

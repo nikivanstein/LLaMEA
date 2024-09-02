@@ -7,7 +7,7 @@ import warnings
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "TSP-HPO"
+experiment_name = "TSP-HPO-deter"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -55,12 +55,12 @@ def evaluateWithHPO(
         scenario = Scenario(
             configuration_space,
             #name=algorithm_name,
-            deterministic=False,
-            n_trials=100,
-            output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
-            #n_workers=10
+            deterministic=True,
+            n_trials=200,
+            output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac",
+            #n_workers=5,
         )
-        smac = HyperparameterOptimizationFacade(scenario, evaluate)
+        smac = HyperparameterOptimizationFacade(scenario, evaluate, overwrite=True)
         incumbent = smac.optimize()
         
         fitness = evaluate(dict(incumbent))
