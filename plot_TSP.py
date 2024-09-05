@@ -52,7 +52,8 @@ experiments_dirs = [
     "exp-08-29_201655-gpt-4o-2024-05-13-ES TSP-HPO",
     #"exp-08-30_114546-gpt-4o-2024-05-13-ES TSP-HPO",
     #"exp-08-30_114606-gpt-4o-2024-05-13-ES TSP-HPO",
-    "exp-08-30_142330-gpt-4o-2024-05-13-ES TSP-HPO-deter"
+    "exp-08-30_142330-gpt-4o-2024-05-13-ES TSP-HPO-deter",
+    "exp-09-02_105043-gpt-4o-2024-05-13-ES TSP-HPO-deter"
 ]
 budget = 100
 
@@ -158,7 +159,12 @@ for exp_dir in exp_dirs:
             if -1*ind["objective"] > best_so_far:
                 best_so_far = -1*ind["objective"]
             conv_line[teller] = best_so_far
-            teller+=1
+            if k == 0:
+                teller+=1
+            else:
+                for x in range(5):#EhO creates 5 offspring per individual
+                    conv_line[teller] = best_so_far
+                    teller+=1
         if teller > budget:
             break
     convergence_lines.append(np.array(conv_line)[:budget])

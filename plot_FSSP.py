@@ -49,7 +49,9 @@ def code_compare(code1, code2, printdiff=False):
 
 ## Plot BP curves
 experiments_dirs = [
-    "exp-08-30_102635-gpt-4o-2024-05-13-ES FSSP-HPO",
+    "exp-09-02_080059-gpt-4o-2024-05-13-ES FSSP-HPO-instance",
+    "exp-09-02_095317-gpt-4o-2024-05-13-ES FSSP-HPO-instance",
+    "exp-09-02_095343-gpt-4o-2024-05-13-ES FSSP-HPO-instance",
 ]
 budget = 100
 
@@ -155,7 +157,12 @@ for exp_dir in exp_dirs:
             if -1*ind["objective"] > best_so_far:
                 best_so_far = -1*ind["objective"]
             conv_line[teller] = best_so_far
-            teller+=1
+            if k == 0:
+                teller+=1
+            else:
+                for x in range(5):#EhO creates 5 offspring per individual
+                    conv_line[teller] = best_so_far
+                    teller+=1
         if teller > budget:
             break
     convergence_lines.append(np.array(conv_line)[:budget])
@@ -184,7 +191,7 @@ plt.fill_between(
 plt.ylim(3000, 3600)
 
 #plt.yscale('symlog')
-plt.xscale('symlog')
+#plt.xscale('symlog')
 plt.xlim(0, 100)
 plt.legend()
 plt.tight_layout()

@@ -41,6 +41,7 @@ def evaluateWithHPO(
 
                 return jssp_prob.gls_instance(alg, seed)
         except Exception as e:
+            print(e)
             return 10000000000
         
     def evaluateAll(config, seed=0):
@@ -58,6 +59,7 @@ def evaluateWithHPO(
 
                 return jssp_prob.gls(alg)
         except Exception as e:
+            print(e)
             return 10000000000
     
     

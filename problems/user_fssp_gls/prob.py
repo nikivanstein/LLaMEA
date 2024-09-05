@@ -8,7 +8,7 @@ import types
 import warnings
 import sys
 import os
-
+import traceback
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 import warnings
 
@@ -113,7 +113,7 @@ class JSSPGLS():
 
     def gls_instance(self,heuristic,seed):
         random.seed(seed)
-        tasks_val, tasks, machines_val = random.choice(zip(self.tasks_val, self.tasks, self.machines_val))
+        tasks_val, tasks, machines_val = random.choice(list(zip(self.tasks_val, self.tasks, self.machines_val)))
         cmax_best = 1E10
         
         #print("run ...")
@@ -155,7 +155,8 @@ class JSSPGLS():
                     cmax = cmax_best
 
         except Exception as e:
-            #print("Error:", str(e))  # Print the error message
+            print("Error!!!!!!!!!!!!:", str(e))  # Print the error message
+            print(traceback.format_exc())
             cmax_best = 1E10
     
         
