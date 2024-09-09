@@ -4,6 +4,7 @@ from ioh import get_problem, logger
 import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
 from llamea import LLaMEA
+import time
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
@@ -128,7 +129,7 @@ def evaluateBBOBWithHPO(
     else:
         scenario = Scenario(
             configuration_space,
-            #name=algorithm_name,
+            name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=False,
             min_budget=12,
             max_budget=200,

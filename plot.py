@@ -54,12 +54,15 @@ experiments_dirs = [
 ]
 budget = 100
 
-label_main = "GPT-4o-HPO"
+label_main = "LLaMEA-HPO"
 
 convergence_lines = []
 convergence_default_lines = []
 code_diff_ratios_lines = []
 
+
+best_code = ""
+best_config = ""
 
 for i in range(len(experiments_dirs)):
     convergence = np.zeros(budget)
@@ -91,8 +94,10 @@ for i in range(len(experiments_dirs)):
                 else:
                     name = obj["_name"]
                     print(f"-- {gen} -- {previous_name} --> {name}")
-                    code_diff = code_compare(previous_code, code, True)
+                    code_diff = code_compare(previous_code, code, False)
                     best_so_far = fitness
+                    best_code = code
+                    best_config = obj["incumbent"]
 
                     #check optimized fitness against plain fitness
                     if True:
@@ -126,6 +131,8 @@ for i in range(len(experiments_dirs)):
                 code_diff_ratios[gen] = code_diff
                 convergence[gen] = fitness
                 convergence_default[gen] = best_so_far_default
+        print("best code", best_code)
+        print("best config", best_config)
 
     # now fix the holes
     best_so_far = 0
@@ -142,10 +149,10 @@ for i in range(len(experiments_dirs)):
     code_diff_ratios_lines.append(code_diff_ratios)
 
 
-plt.figure(figsize=(6, 4))
+plt.figure(figsize=(6, 6))
 for i in range(len(convergence_lines)):
-    plt.plot(np.arange(budget), convergence_lines[i], linestyle="dashed")
-    plt.plot(np.arange(budget), convergence_default_lines[i], linestyle="dotted")
+    plt.plot(np.arange(budget), convergence_lines[i], linestyle="dashed", color="C0")
+    plt.plot(np.arange(budget), convergence_default_lines[i], linestyle="dotted", color="C4")
 
 # convergence curves
 
@@ -153,30 +160,41 @@ np.save("HPOconvergence_lines.npy", convergence_lines)
 mean_convergence = np.array(convergence_lines).mean(axis=0)
 mean_convergence_default = np.array(convergence_default_lines).mean(axis=0)
 std = np.array(convergence_lines).std(axis=0)
+std_d = np.array(convergence_default_lines).std(axis=0)
 plt.plot(
     np.arange(budget),
     mean_convergence,
-    color="b",
+    color="C0",
     linestyle="solid",
     label=label_main,
 )
 plt.plot(
     np.arange(budget),
     mean_convergence_default,
-    color="r",
+    color="C4",
     linestyle="solid",
     label=label_main + " default",
 )
 plt.fill_between(
     np.arange(budget),
+    mean_convergence_default - std_d,
+    mean_convergence_default + std_d,
+    color="C4",
+    alpha=0.05,
+)
+plt.fill_between(
+    np.arange(budget),
     mean_convergence - std,
     mean_convergence + std,
-    color="b",
+    color="C0",
     alpha=0.05,
 )
 # plt.fill_between(x, 0, 1, where=error_bars, color='r', alpha=0.2)
 plt.ylim(0.0, 0.7)
 plt.xlim(0, 100)
+plt.xlabel("LLM iterations")
+plt.ylabel("Mean AOCC")
+plt.title("optimized vs non-optimized performance")
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"plot_aucs_HPO.png")

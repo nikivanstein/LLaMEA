@@ -2,7 +2,7 @@ import time
 import numpy as np
 from numba import jit
 from . import gls_operators
-from ..utils import utils
+from utils import utils
 import random
 
 #@jit(nopython=True) 

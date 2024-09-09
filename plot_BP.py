@@ -49,7 +49,9 @@ def code_compare(code1, code2, printdiff=False):
 
 ## Plot BP curves
 experiments_dirs = [
-    "exp-09-02_095524-gpt-4o-2024-05-13-ES BP-HPO-long",
+    #"exp-09-02_095524-gpt-4o-2024-05-13-ES BP-HPO-long",
+    #"exp-09-06_070243-gpt-4o-2024-05-13-ES BP-HPO-long",
+    "exp-09-06_122145-gpt-4o-2024-05-13-ES BP-HPO-long",
     "exp-09-02_095606-gpt-4o-2024-05-13-ES BP-HPO-long",
     "exp-08-30_141720-gpt-4o-2024-05-13-ES BP-HPO-long"
 ]
@@ -88,7 +90,7 @@ for i in range(len(experiments_dirs)):
                     gen = obj["_generation"]
                 if "_fitness" in obj.keys():
                     fitness = obj["_fitness"]
-                    print(fitness)
+                    #print(fitness)
                 else:
                     fitness = None
 
@@ -103,7 +105,7 @@ for i in range(len(experiments_dirs)):
                 else:
                     name = obj["_name"]
                     print(f"-- {gen} -- {previous_name} --> {name}")
-                    code_diff = code_compare(previous_code, code, True)
+                    code_diff = code_compare(previous_code, code, False)
                     best_so_far = fitness
 
                     previous_code = code
@@ -129,7 +131,7 @@ print(best_ever_code)
 
 plt.figure(figsize=(6, 4))
 for i in range(len(convergence_lines)):
-    plt.plot(np.arange(budget), -convergence_lines[i], linestyle="dashed")
+    plt.plot(np.arange(budget), -convergence_lines[i], linestyle="dashed", color='C0')
     #print(convergence_lines[i])
 
 # convergence curves
@@ -140,7 +142,7 @@ std = np.array(convergence_lines).std(axis=0)
 plt.plot(
     np.arange(budget),
     mean_convergence,
-    color="b",
+    color="C0",
     linestyle="solid",
     label=label_main,
 )
@@ -148,7 +150,7 @@ plt.fill_between(
     np.arange(budget),
     mean_convergence - std,
     mean_convergence + std,
-    color="b",
+    color="C0",
     alpha=0.05,
 )
 
@@ -157,44 +159,44 @@ plt.fill_between(
 exp_dirs = ["EoHresults/Prob1_OnlineBinPacking/run1", "EoHresults/Prob1_OnlineBinPacking/run2", "EoHresults/Prob1_OnlineBinPacking/run3"]
 convergence_lines = []
 for exp_dir in exp_dirs:
-    conv_line = np.ones(budget*2) * -np.Inf
+    conv_line = np.ones(budget*200) * -np.Inf
     best_so_far = -np.Inf
     teller = 0
-    for k in range(5):
+    for k in range(20):
         with open(exp_dir + f"/population_generation_{k}.json") as f:
             pop = json.load(f)
         for ind in pop:
-            if teller > budget:
-                break
+            # if teller > budget:
+            #     break
             if -1*ind["objective"] > best_so_far:
                 best_so_far = -1*ind["objective"]
             conv_line[teller] = best_so_far
             if k == 0:
                 teller+=1
             else:
-                for x in range(5):#EhO creates 5 offspring per individual
+                for x in range(5):#EoH creates 5 offspring per individual
                     conv_line[teller] = best_so_far
                     teller+=1
             
-    convergence_lines.append(np.array(conv_line)[:budget])
+    convergence_lines.append(np.array(conv_line))
 
 for i in range(len(convergence_lines)):
-    plt.plot(np.arange(budget), -convergence_lines[i], linestyle="dotted")
+    plt.plot(np.arange(len(convergence_lines[i])), -convergence_lines[i], linestyle="dotted", color='C1')
 
 mean_convergence = -1 * np.array(convergence_lines).mean(axis=0)
 std = np.array(convergence_lines).std(axis=0)
 plt.plot(
-    np.arange(budget),
+    np.arange(len(mean_convergence)),
     mean_convergence,
-    color="r",
+    color="C1",
     linestyle="solid",
     label="EoH",
 )
 plt.fill_between(
-    np.arange(budget),
+    np.arange(len(mean_convergence)),
     mean_convergence - std,
     mean_convergence + std,
-    color="r",
+    color="C1",
     alpha=0.05,
 )
 # plt.fill_between(x, 0, 1, where=error_bars, color='r', alpha=0.2)
@@ -204,6 +206,9 @@ plt.fill_between(
 #plt.xscale('symlog')
 plt.xlim(0, 100)
 plt.legend()
+plt.ylabel("Objective")
+plt.xlabel("LLM iterations")
+plt.title("Convergence on Bin Packing problems")
 plt.tight_layout()
 plt.savefig(f"plot_BP_HPO.png")
 

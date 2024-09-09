@@ -6,8 +6,8 @@ import types
 import warnings
 import sys
 
-from .utils import readTSPRandom
-from .gls.gls_run import solve_instance
+from utils import readTSPRandom
+from gls.gls_run import solve_instance
 
 class TSPGLS():
     def __init__(self) -> None:
@@ -43,6 +43,30 @@ class TSPGLS():
         return neighborhood_matrix
 
     def evaluateGLS(self,heuristic):
+
+        gaps = np.zeros(self.n_inst_eva)
+
+        for i in range(self.n_inst_eva):
+            gap = solve_instance(i,self.opt_costs[i],  
+                                 self.instances[i], 
+                                 self.coords[i],
+                                 self.time_limit,
+                                 self.ite_max,
+                                 self.perturbation_moves,
+                                 heuristic)
+            gaps[i] = gap
+
+        return np.mean(gaps)
+    
+    def testGLS(self,heuristic,instance_dataset):
+        self.debug_mode=False
+
+        self.coords = instance_dataset['coordinate']
+        optimal_tour = instance_dataset['optimal_tour']
+        self.instances = instance_dataset['distance_matrix']
+        self.opt_costs = instance_dataset['cost']
+
+        #self.coords,self.instances,self.opt_costs = readTSPRandom.read_instance_all(self.instance_path)
 
         gaps = np.zeros(self.n_inst_eva)
 
@@ -105,7 +129,7 @@ class TSPGLS():
                 return fitness
             
         except Exception as e:
-            #print("Error:", str(e))
+            print("Error:", str(e))
             return None
 
 

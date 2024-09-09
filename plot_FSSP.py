@@ -119,7 +119,7 @@ for i in range(len(experiments_dirs)):
 
 plt.figure(figsize=(6, 4))
 for i in range(len(convergence_lines)):
-    plt.plot(np.arange(budget), -convergence_lines[i], linestyle="dashed")
+    plt.plot(np.arange(budget), -convergence_lines[i], linestyle="dashed", color="C0")
     #print(convergence_lines[i])
 
 # convergence curves
@@ -130,7 +130,7 @@ std = np.array(convergence_lines).std(axis=0)
 plt.plot(
     np.arange(budget),
     mean_convergence,
-    color="b",
+    color="C0",
     linestyle="solid",
     label=label_main,
 )
@@ -138,7 +138,7 @@ plt.fill_between(
     np.arange(budget),
     mean_convergence - std,
     mean_convergence + std,
-    color="b",
+    color="C0",
     alpha=0.05,
 )
 
@@ -169,14 +169,14 @@ for exp_dir in exp_dirs:
     print(teller)
 
 for i in range(len(convergence_lines)):
-    plt.plot(np.arange(budget), -convergence_lines[i], linestyle="dotted")
+    plt.plot(np.arange(budget), -convergence_lines[i], linestyle="dotted", color="C1")
 
 mean_convergence = -1 * np.array(convergence_lines).mean(axis=0)
 std = np.array(convergence_lines).std(axis=0)
 plt.plot(
     np.arange(budget),
     mean_convergence,
-    color="r",
+    color="C1",
     linestyle="solid",
     label="EoH",
 )
@@ -184,7 +184,7 @@ plt.fill_between(
     np.arange(budget),
     mean_convergence - std,
     mean_convergence + std,
-    color="r",
+    color="C1",
     alpha=0.05,
 )
 # plt.fill_between(x, 0, 1, where=error_bars, color='r', alpha=0.2)
@@ -193,6 +193,9 @@ plt.ylim(3000, 3600)
 #plt.yscale('symlog')
 #plt.xscale('symlog')
 plt.xlim(0, 100)
+plt.ylabel("Objective")
+plt.xlabel("LLM iterations")
+plt.title("Convergence on FSSP problems")
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"plot_FSSP_HPO.png")

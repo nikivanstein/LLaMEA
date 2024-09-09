@@ -3,7 +3,7 @@ import time
 import importlib
 import numpy as np
 
-from ..utils import utils
+from utils import utils
 from . import gls_evol
 
 def solve_instance(n,opt_cost,dis_matrix,coord,time_limit, ite_max, perturbation_moves,heuristic):
@@ -29,7 +29,7 @@ def solve_instance(n,opt_cost,dis_matrix,coord,time_limit, ite_max, perturbation
         gap = (best_cost / opt_cost - 1) * 100
 
     except Exception as e:
-        #print("Error:", str(e))  # Print the error message
+        print("Error:", str(e))  # Print the error message
         gap = 1E10
     
     #print(f"instance {n+1}: cost = {best_cost:.3f}, gap = {gap:.3f}, n_it = {iter_i}, cost_t = {time.time()-t:.3f}")
