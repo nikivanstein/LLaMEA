@@ -99,6 +99,21 @@ for i in range(len(experiments_dirs)):
                     best_ever_config = obj["incumbent"]
                     best_ever_name = obj["_name"]
 
+                if fitness >= -1.850371707708594e-10:
+                    name = obj["_name"]
+                    file = open(f"problems/user_tsp_gls/algs/{name}.py", 'w')
+                    file.write(code)
+                    conf = obj["incumbent"]
+                    maincall = f"""
+
+def update_edge_distance(edge_distance, local_opt_tour, edge_n_used):
+    # {fitness}
+    config = {conf}
+    scoringalg = {name}(**config)
+    return scoringalg.update_edge_distance(edge_distance, local_opt_tour, edge_n_used)"""
+                    file.write(maincall)
+                    file.close()
+
                 if fitness <= best_so_far:
                     code_diff = code_compare(previous_code, code, False)
                 else:
@@ -115,6 +130,7 @@ for i in range(len(experiments_dirs)):
                 convergence[gen] = fitness
     #print("Best algorithm: ", previous_name, "with config:", previous_config)
     #print(previous_code)
+
 
     # now fix the holes
     best_so_far = -np.Inf

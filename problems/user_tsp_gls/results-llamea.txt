@@ -1,3 +1,0 @@
-llamea - Average dis on 1000 instance with size 20 is:   0.003 timecost: 1594.283
-llamea - Average dis on 1000 instance with size 50 is:   0.045 timecost: 2440.834
-llamea - Average dis on 1000 instance with size 100 is:   0.303 timecost: 4619.548

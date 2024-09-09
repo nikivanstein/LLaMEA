@@ -3,6 +3,7 @@ import numpy as np
 import re
 from llamea import LLaMEA
 import warnings
+import time
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
@@ -73,7 +74,7 @@ def evaluateWithHPO(
     else:
         scenario = Scenario(
             configuration_space,
-            #name=algorithm_name,
+            name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=False,
             n_trials=200,
             min_budget = 1,

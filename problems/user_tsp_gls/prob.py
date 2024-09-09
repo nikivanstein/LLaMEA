@@ -80,7 +80,7 @@ class TSPGLS():
                                  heuristic)
             gaps[i] = gap
 
-        return np.mean(gaps)
+        return gaps
     
 
     # def evaluateGLS(self,heuristic):

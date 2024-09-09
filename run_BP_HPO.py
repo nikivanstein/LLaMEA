@@ -3,11 +3,12 @@ import numpy as np
 import re
 from llamea import LLaMEA
 import warnings
+import time
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "BP-HPO-long"
+experiment_name = "BP-HPO-long-large"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -55,10 +56,11 @@ def evaluateWithHPO(
         scenario = Scenario(
             configuration_space,
             #name=algorithm_name,
+            name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=True,
             #min_budget=None,
             #max_budget=None,
-            n_trials=1000,
+            n_trials=100,
             #instances=None,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
             #n_workers=10
@@ -87,18 +89,20 @@ The heuristic algorithm class should contain two functions an "__init__()" funct
 The output named 'scores' is the scores for the bins for assignment.
 Note that 'item' is of type int, while 'bins' and 'scores' are both Numpy arrays. The novel function should be sufficiently complex in order to achieve better performance. It is important to ensure self-consistency.
 
-An example heuristic to show the structure is as follows.
+An example baseline heuristic that we should improve and to show the structure is as follows.
 ```python
 import numpy as np
 
 class Sample:
-    def __init__(self, param1, param2):
-        self.param1 = param1
-        self.param2 = param2
+    def __init__(self, s1=1.0, s2=100):
+        self.s1 = s1
+        self.s2 = s2
 
     def score(self, item, bins):
-        scores = item - bins
-        return scores
+        scores = (bins / np.sqrt(np.log(bins - item))) ** (bins / np.sqrt(item)) * np.exp(item * (bins - item)) * np.sqrt(item)
+        scores /= (self.s1 / bins) * np.sqrt(item)
+        scores *= self.s2 # scaler constant factor
+    return scores
 ```
 
 In addition, any hyper-parameters the algorithm uses will be optimized by SMAC, for this, provide a Configuration space as Python dictionary (without the item and bins parameters) and include all hyper-parameters to be optimized in the __init__ function header.
@@ -119,7 +123,7 @@ Give an excellent and novel heuristic including its configuration space to solve
 """
 
 feedback_prompt = (
-    f"Adapt your strategy based on the best and previous tried solutions (and give it a distinct name). Give the response in the format:\n"
+    f"Adapt your strategy based on the best and previous tried solutions to improve the score (and give it a distinct name). Give the response in the format:\n"
     f"# Name: <name>\n"
     f"# Code: <code>\n"
     f"# Space: <configuration_space>"
@@ -134,6 +138,7 @@ for experiment_i in [1]:
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,
+        budget=500,
         elitism=True,
         HPO=True,
     )

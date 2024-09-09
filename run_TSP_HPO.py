@@ -3,6 +3,7 @@ import numpy as np
 import re
 from llamea import LLaMEA
 import warnings
+import time
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
@@ -54,7 +55,7 @@ def evaluateWithHPO(
     else:
         scenario = Scenario(
             configuration_space,
-            #name=algorithm_name,
+            name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=True,
             n_trials=200,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac",
