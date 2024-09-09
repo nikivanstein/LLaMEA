@@ -4,8 +4,8 @@ algorithms to automatically evaluate (for example metaheuristics evaluated on BB
 """
 import json
 import re
-import traceback
 import signal
+import traceback
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -143,7 +143,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             self.last_error = repr(e) + traceback.format_exc()
             self.last_feedback = f"An exception occured: {self.last_error}."
             print(self.last_error)
-        
+
         if self.log:
             complete_log["_generation"] = self.generation
             complete_log["_name"] = name

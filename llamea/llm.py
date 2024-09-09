@@ -1,8 +1,8 @@
 """LLM manager to connect to different types of models.
 """
+import google.generativeai as genai
 import ollama
 import openai
-import google.generativeai as genai
 
 
 class LLMmanager:
