@@ -5,6 +5,7 @@ from .prompts import GetPrompts
 import types
 import warnings
 import sys
+import random
 
 class BPONLINE():
     def __init__(self):
@@ -38,6 +39,50 @@ class BPONLINE():
         packing = [bin_items for bin_items in packing if bin_items]
         return packing, bins
 
+    # @funsearch.run
+    def evaluateInstance(self,alg,seed) -> float:
+        # algorithm_module = importlib.import_module("ael_alg")
+        # alg = importlib.reload(algorithm_module)  
+        """Evaluate heuristic function on a random instance."""
+        # List storing number of bins used for each instance.
+        #num_bins = []
+        # Perform online binpacking for each instance.
+        # for name in instances:
+        #     #print(name)
+        random.seed(seed)
+        instance = random.choice(list(self.instances.items()))
+        name = instance[0]
+        dataset = instance[1]
+
+        num_bins_list = []
+        for _, instance in dataset.items():
+
+            capacity = instance['capacity']
+            items = np.array(instance['items'])
+
+            # items = items/capacity
+            # capacity = 1.0
+
+            # Create num_items bins so there will always be space for all items,
+            # regardless of packing order. Array has shape (num_items,).
+            bins = np.array([capacity for _ in range(instance['num_items'])])
+            # Pack items into bins and return remaining capacity in bins_packed, which
+            # has shape (num_items,).
+            _, bins_packed = self.online_binpack(items, bins, alg)
+            # If remaining capacity in a bin is equal to initial capacity, then it is
+            # unused. Count number of used bins.
+            num_bins = (bins_packed != capacity).sum()
+
+            num_bins_list.append(-num_bins)
+
+        # avg_num_bins = -self.evaluateGreedy(dataset, algorithm)
+        avg_num_bins = -np.mean(np.array(num_bins_list))
+        fitness = (avg_num_bins - self.lb[name]) / self.lb[name]
+
+        # Score of heuristic function is negative of average number of bins used
+        # across instances (as we want to minimize number of bins).
+
+        return fitness
 
     # @funsearch.run
     def evaluateGreedy(self,alg) -> float:

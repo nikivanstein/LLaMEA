@@ -8,7 +8,7 @@ import time
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "TSP-HPO-deter"
+experiment_name = "TSP-HPO-inst"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -40,9 +40,27 @@ def evaluateWithHPO(
                     **dict(config)
                 )
 
-                return tsp_prob.evaluateGLS(alg)
+                return tsp_prob.gls_instance(alg, seed)
         except Exception as e:
             return 10000
+        
+    def evaluateAll(config, seed=0):
+        np.random.seed(seed)
+        try:
+            # Suppress warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                
+                # Execute the code string in the new module's namespace
+                exec(code, globals())
+                alg = globals()[algorithm_name](
+                    **dict(config)
+                )
+
+                return tsp_prob.evaluateGLS(alg)
+        except Exception as e:
+            print(e)
+            return 10000000000
     
     
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
@@ -56,15 +74,17 @@ def evaluateWithHPO(
         scenario = Scenario(
             configuration_space,
             name=str(int(time.time())) + "-" + algorithm_name,
-            deterministic=True,
-            n_trials=200,
+            deterministic=False,
+            n_trials=256,
+            min_budget = 1,
+            max_budget = 4,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac",
             #n_workers=5,
         )
         smac = HyperparameterOptimizationFacade(scenario, evaluate, overwrite=True)
         incumbent = smac.optimize()
         
-        fitness = evaluate(dict(incumbent))
+        fitness = evaluateAll(dict(incumbent))
 
     fitness = -1 * fitness #we optimize (not minimize)
 

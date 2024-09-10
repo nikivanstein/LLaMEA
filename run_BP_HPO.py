@@ -40,9 +40,28 @@ def evaluateWithHPO(
                     **dict(config)
                 )
 
-                return bp_prob.evaluateGreedy(alg)
+                return bp_prob.evaluateInstance(alg, seed)
         except Exception as e:
             return 100
+        
+    def evaluateAll(config, seed=0):
+        np.random.seed(seed)
+        try:
+            # Suppress warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                
+                # Execute the code string in the new module's namespace
+                exec(code, globals())
+                alg = globals()[algorithm_name](
+                    **dict(config)
+                )
+
+                return bp_prob.evaluateGreedy(alg)
+        except Exception as e:
+            print(e)
+            return 10000000000
+    
     
     
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
@@ -57,18 +76,17 @@ def evaluateWithHPO(
             configuration_space,
             #name=algorithm_name,
             name=str(int(time.time())) + "-" + algorithm_name,
-            deterministic=True,
-            #min_budget=None,
-            #max_budget=None,
-            n_trials=100,
-            #instances=None,
+            deterministic=False,
+            n_trials=40,
+            min_budget = 1,
+            max_budget = 4,
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
             #n_workers=10
         )
         smac = HyperparameterOptimizationFacade(scenario, evaluate, overwrite=True)
         incumbent = smac.optimize()
         print(dict(incumbent))
-        fitness = evaluate(dict(incumbent))
+        fitness = evaluateAll(dict(incumbent))
 
     fitness = -1 * fitness #we optimize (not minimize)
     dict_hyperparams = dict(incumbent)
@@ -89,7 +107,7 @@ The heuristic algorithm class should contain two functions an "__init__()" funct
 The output named 'scores' is the scores for the bins for assignment.
 Note that 'item' is of type int, while 'bins' and 'scores' are both Numpy arrays. The novel function should be sufficiently complex in order to achieve better performance. It is important to ensure self-consistency.
 
-An example baseline heuristic that we should improve and to show the structure is as follows.
+An example baseline heuristic that we should improve and to show the structure is as follows:
 ```python
 import numpy as np
 
@@ -99,9 +117,7 @@ class Sample:
         self.s2 = s2
 
     def score(self, item, bins):
-        scores = (bins / np.sqrt(np.log(bins - item))) ** (bins / np.sqrt(item)) * np.exp(item * (bins - item)) * np.sqrt(item)
-        scores /= (self.s1 / bins) * np.sqrt(item)
-        scores *= self.s2 # scaler constant factor
+        scores = items - bins
     return scores
 ```
 
@@ -138,7 +154,7 @@ for experiment_i in [1]:
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,
-        budget=500,
+        budget=100,
         elitism=True,
         HPO=True,
     )

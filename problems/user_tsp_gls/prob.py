@@ -5,13 +5,22 @@ import os
 import types
 import warnings
 import sys
-
+import importlib
 from utils import readTSPRandom
 from gls.gls_run import solve_instance
+import concurrent
+import random
+
+
+def solve_instance_parallel(i, opt_cost, instance, coord, time_limit, ite_max, perturbation_moves, heuristic_name):
+    heuristic_module = importlib.import_module(f"{heuristic_name}")
+    heuristic = importlib.reload(heuristic_module)
+    return solve_instance(i, opt_cost, instance, coord, time_limit, ite_max, perturbation_moves, heuristic)
+
 
 class TSPGLS():
     def __init__(self) -> None:
-        self.n_inst_eva = 3 # a samll value for test only
+        self.n_inst_eva = 64
         self.time_limit = 10 # maximum 10 seconds for each instance
         self.ite_max = 1000 # maximum number of local searchs in GLS for each instance
         self.perturbation_moves = 1 # movers of each edge in each perturbation
@@ -41,6 +50,18 @@ class TSPGLS():
             neighborhood_matrix[i] = sorted_indices
 
         return neighborhood_matrix
+    
+
+    def gls_instance(self, heuristic, seed):
+        random.seed(seed)
+        opt_costs, instances, coords = random.choice(list(zip(self.opt_costs, self.instances, self.coords)))
+        return solve_instance(0, opt_costs,  
+                                 instances, 
+                                 coords,
+                                 self.time_limit,
+                                 self.ite_max,
+                                 self.perturbation_moves,
+                                 heuristic)
 
     def evaluateGLS(self,heuristic):
 
@@ -58,7 +79,7 @@ class TSPGLS():
 
         return np.mean(gaps)
     
-    def testGLS(self,heuristic,instance_dataset):
+    def testGLS(self,heuristic_name,instance_dataset):
         self.debug_mode=False
 
         self.coords = instance_dataset['coordinate']
@@ -70,17 +91,33 @@ class TSPGLS():
 
         gaps = np.zeros(self.n_inst_eva)
 
-        for i in range(self.n_inst_eva):
-            gap = solve_instance(i,self.opt_costs[i],  
-                                 self.instances[i], 
-                                 self.coords[i],
-                                 self.time_limit,
-                                 self.ite_max,
-                                 self.perturbation_moves,
-                                 heuristic)
-            gaps[i] = gap
+        # Create a ProcessPoolExecutor with the number of available CPU cores
+        with concurrent.futures.ProcessPoolExecutor(max_workers=50) as executor:
+            # Submit tasks for parallel execution
+            futures = [
+                executor.submit(solve_instance_parallel, i, self.opt_costs[i], self.instances[i], 
+                                self.coords[i], self.time_limit, self.ite_max, 
+                                self.perturbation_moves, heuristic_name)
+                for i in range(self.n_inst_eva)
+            ]
+
+            # Collect the results as they complete
+            for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                gaps[i] = future.result()
 
         return gaps
+
+        # for i in range(self.n_inst_eva):
+        #     gap = solve_instance(i,self.opt_costs[i],  
+        #                          self.instances[i], 
+        #                          self.coords[i],
+        #                          self.time_limit,
+        #                          self.ite_max,
+        #                          self.perturbation_moves,
+        #                          heuristic)
+        #     gaps[i] = gap
+
+        # return gaps
     
 
     # def evaluateGLS(self,heuristic):
