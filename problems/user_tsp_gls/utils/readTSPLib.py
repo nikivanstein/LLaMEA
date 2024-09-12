@@ -3,16 +3,20 @@ import networkx as nx
 # Read coordinates from input file
 from numba import jit
 import os
+import tqdm
 
 #@jit(nopython=True) 
 def read_coordinates(file_name):
     coordinates = []
     file = open(file_name, 'r')
     lines = file.readlines()
+    index = None
     for line in lines:
         if line.startswith('NODE_COORD_SECTION'):
             index = lines.index(line) + 1
             break
+    if index == None:
+        return None
     for i in range(index, len(lines)-1):
         parts = lines[i].split()
         if (parts[0]=='EOF'): break
@@ -54,9 +58,11 @@ def transform_to_graph(distance_matrix):
 
 #@jit(nopython=True) 
 def read_instance(filename):
-
+    #print(filename)
     # Test the code
     coordinates = read_coordinates(filename)
+    if coordinates == None:
+        return None, None
     distance_matrix, scale = create_distance_matrix(coordinates)
     G = transform_to_graph(distance_matrix)
 
@@ -68,11 +74,13 @@ def read_instance_all(instances_path):
     instances_scale = []
     instances_name = []
     file_names = os.listdir(instances_path)
-    for filename in file_names:
-        G,scale = read_instance(instances_path +"/"+ filename)
-        instances.append(G)
-        instances_scale.append(scale)
-        instances_name.append(filename)
+    for filename in tqdm.tqdm(file_names):
+        if ".tsp" in filename:
+            G,scale = read_instance(instances_path + filename)
+            if G != None:
+                instances.append(G)
+                instances_scale.append(scale)
+                instances_name.append(filename)
     return instances,instances_scale,instances_name
 
 

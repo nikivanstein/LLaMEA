@@ -1,0 +1,3 @@
+EoH2-500 - Average dis on 1000 instance with size 20 is: -0.00000 timecost:  33.473
+EoH2-500 - Average dis on 1000 instance with size 50 is: -0.00000 timecost:  52.533
+EoH2-500 - Average dis on 1000 instance with size 100 is: 0.02662 timecost: 111.262

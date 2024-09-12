@@ -38,8 +38,27 @@ plt.savefig("tsp_results2.pdf")
 
 plt.clf()
 
-plt.figure(figsize=(16, 8))
-g = sns.FacetGrid(gap_data, col="Problem_Size", height=5, aspect=1.5)
+filtered_data = gap_data[gap_data["Problem_Size"] == 100]
+plt.figure(figsize=(12, 5))
+sns.boxplot(x="Algorithm", y="Gap", data=filtered_data,  dodge=True, linewidth=0.2)
+
+# Add titles and labels
+plt.title("Comparison of Algorithms on TSP100")
+plt.xlabel("Algorithm")
+plt.ylabel("Gap")
+
+# Rotate x-axis labels for better readability
+plt.xticks(rotation=90)
+#plt.yscale("symlog")
+# Adjust the layout to make it look better
+plt.tight_layout()
+plt.savefig("tsp.pdf")
+
+
+plt.clf()
+
+plt.figure(figsize=(8, 4))
+g = sns.FacetGrid(gap_data, col="Problem_Size", height=3, aspect=1.5)
 g.map(sns.boxplot, "Algorithm", "Gap")
 
 # Rotate x-axis labels for better readability
@@ -52,7 +71,7 @@ plt.tight_layout()
 plt.savefig("tsp_results3.pdf")
 
 plt.clf()
-plt.figure(figsize=(14, 7))
+plt.figure(figsize=(8, 4))
 sns.barplot(x="Algorithm", y="Gap", hue="Problem_Size", data=gap_data, ci="sd", dodge=True)
 
 # Add titles and labels

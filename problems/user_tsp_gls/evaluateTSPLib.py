@@ -8,10 +8,11 @@ import importlib
 import os
 import numpy as np
 import tqdm
+from utils.readTSPLib import read_instance_all
+import concurrent
 
 debug_mode = False
 # problem_size = [10,20,50,100,200]
-problem_size = [20,50,100]
 n_test_ins = 1000
 
 # Initialize DataFrame to collect gaps
@@ -35,6 +36,11 @@ goodalgs = ["EoH1-100", "EoH2-100", "EoH3-100",
 
 labels = ["EoH-100-1", "EoH-100-2", "EoH-100-3", "EoH-2000-1", "EoH-2000-2", "EoH-2000-3", "LLaMEA-HPO-1", "LLaMEA-HPO-2", "LLaMEA-HPO-3"]
 
+path = os.path.dirname(os.path.abspath(__file__))
+instances, instances_scale, instances_name = read_instance_all(path+"/tsplib/")
+print(instances_name)
+
+a = aaaa
 i = 0
 for alg in tqdm.tqdm(goodalgs):
     #print(filename)
@@ -42,17 +48,30 @@ for alg in tqdm.tqdm(goodalgs):
     prob = TSPGLS()
     prob.n_inst_eva = n_test_ins
     #print("Start evaluation...", h)
-    with open(f"results/{h}.txt", "w") as file:
-        for size in problem_size:
-            path = os.path.dirname(os.path.abspath(__file__))
-            instance_file_name = path+'/TestingData/TSP' + str(size)+ '.pkl'
-            with open(instance_file_name, 'rb') as f:
-                instance_dataset = pickle.load(f)
+    with open(f"results/TSP-{h}.txt", "w") as file:
+         
+        for problem_i in range(len(instances_name)):
+            instance = instances[problem_i]
+            scale = instances_scale[problem_i]
+            name = instances_name[problem_i]
 
-            # heuristic_module = importlib.import_module(f"algs.{h}")
-            # heuristic = importlib.reload(heuristic_module)
-            
+            gaps = np.zeros(self.n_inst_eva)
 
+            # Create a ProcessPoolExecutor with the number of available CPU cores
+            with concurrent.futures.ProcessPoolExecutor(max_workers=50) as executor:
+                # Submit tasks for parallel execution
+                futures = [
+                    executor.submit(solve_instance_parallel, i, self.opt_costs[i], self.instances[i], 
+                                    self.coords[i], self.time_limit, self.ite_max, 
+                                    self.perturbation_moves, heuristic_name)
+                    for i in range(self.n_inst_eva)
+                ]
+
+                # Collect the results as they complete
+                for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                    gaps[i] = future.result()
+
+            return gaps
             time_start = time.time()
             gaps = prob.testGLS(f"llamea.tspalgs.{h}", instance_dataset)
 
