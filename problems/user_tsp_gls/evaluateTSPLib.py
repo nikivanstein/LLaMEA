@@ -16,7 +16,7 @@ debug_mode = False
 n_test_ins = 1000
 
 # Initialize DataFrame to collect gaps
-gap_data = pd.DataFrame(columns=["Algorithm", "Problem_Size", "Gap"])
+gap_data = pd.DataFrame(columns=["Algorithm", "Problem", "Scale", "Gap"])
 
 # Function to append gaps to DataFrame
 def append_gaps_to_dataframe(algorithm, problem, size, gap, gap_data):
@@ -151,7 +151,7 @@ opt_costs = {
     "vm1748": 336556
 }
 path = os.path.dirname(os.path.abspath(__file__))
-instances, instances_scale, instances_name = read_instance_all(path+"/tsplib/", 500)
+instances, instances_scale, instances_name = read_instance_all(path+"/tsplib/", 10000)
 print(instances_name)
 
 for alg_i in tqdm.tqdm(range(len(goodalgs))):
@@ -166,7 +166,7 @@ for alg_i in tqdm.tqdm(range(len(goodalgs))):
     with concurrent.futures.ProcessPoolExecutor(max_workers=50) as executor:
         # Submit tasks for parallel execution
         futures = [
-            executor.submit(solve_instance_parallel_TSP, i, opt_costs[instances_name[i]], instances[i], 
+            executor.submit(solve_instance_parallel_TSP, i, (opt_costs[instances_name[i]] / instances_scale[i]), instances[i], 
                             120, 1000, 
                             prob.perturbation_moves, f"llamea.tspalgs.{h}")
             for i in range(len(instances))
@@ -183,8 +183,8 @@ gap_data.to_csv("gap_data_TSP.csv", index=False)
 gap_data.to_pickle("gap_data_TSP.pkl")
 
 # Plot the violin plot using Seaborn
-plt.figure(figsize=(10, 6))
-sns.violinplot(x="Problem_Size", y="Gap", hue="Algorithm", data=gap_data, split=True)
-plt.xlabel("TSP Problem Size")
-plt.title("Gap Distribution by Algorithm and Problem")
-plt.savefig("tsplib_results.pdf")
+# plt.figure(figsize=(10, 6))
+# sns.violinplot(x="Problem_Size", y="Gap", hue="Algorithm", data=gap_data, split=True)
+# plt.xlabel("TSP Problem Size")
+# plt.title("Gap Distribution by Algorithm and Problem")
+# plt.savefig("tsplib_results.pdf")

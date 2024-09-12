@@ -26,7 +26,7 @@ def solve_instance(n,opt_cost,dis_matrix,coord,time_limit, ite_max, perturbation
         best_tour, best_cost, iter_i = gls_evol.guided_local_search(coord, dis_matrix, nearest_indices, init_tour, init_cost,
                                                         t + time_limit, ite_max, perturbation_moves,
                                                         first_improvement=False, guide_algorithm=heuristic)
-
+        print(best_cost, opt_cost)
         gap = (best_cost / opt_cost - 1) * 100
 
     except Exception as e:

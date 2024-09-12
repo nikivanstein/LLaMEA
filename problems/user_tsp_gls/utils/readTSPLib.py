@@ -12,6 +12,9 @@ def read_coordinates(file_name):
     lines = file.readlines()
     index = None
     for line in lines:
+        if line.startswith('EDGE_WEIGHT_TYPE'):
+            if 'EUC_2D' not in line: #only allow euclidean 2d
+                return None
         if line.startswith('NODE_COORD_SECTION'):
             index = lines.index(line) + 1
             break
