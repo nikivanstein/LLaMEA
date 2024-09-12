@@ -18,6 +18,12 @@ def solve_instance_parallel(i, opt_cost, instance, coord, time_limit, ite_max, p
     return solve_instance(i, opt_cost, instance, coord, time_limit, ite_max, perturbation_moves, heuristic)
 
 
+def solve_instance_parallel_TSP(i, opt_cost, instance, time_limit, ite_max, perturbation_moves, heuristic_name):
+    heuristic_module = importlib.import_module(f"{heuristic_name}")
+    heuristic = importlib.reload(heuristic_module)
+    return solve_instance(i, opt_cost, instance, None, time_limit, ite_max, perturbation_moves, heuristic), i
+
+
 class TSPGLS():
     def __init__(self) -> None:
         self.n_inst_eva = 64

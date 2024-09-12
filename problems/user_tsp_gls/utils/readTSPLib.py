@@ -64,23 +64,35 @@ def read_instance(filename):
     if coordinates == None:
         return None, None
     distance_matrix, scale = create_distance_matrix(coordinates)
-    G = transform_to_graph(distance_matrix)
+    #G = transform_to_graph(distance_matrix)
 
     # return distance matrix
-    return G, scale
+    return distance_matrix, scale
 
-def read_instance_all(instances_path):
+import re
+def extract_number_from_filename(filename):
+    # Use regex to find all digits in the filename
+    match = re.search(r'\d+', filename)
+    if match:
+        return int(match.group())
+    else:
+        return None  # or raise an error, or return a default value
+    
+def read_instance_all(instances_path, maxsize = 500):
     instances = []
     instances_scale = []
     instances_name = []
     file_names = os.listdir(instances_path)
     for filename in tqdm.tqdm(file_names):
         if ".tsp" in filename:
-            G,scale = read_instance(instances_path + filename)
-            if G != None:
-                instances.append(G)
-                instances_scale.append(scale)
-                instances_name.append(filename)
+            filename_without_extension, _ = os.path.splitext(filename)
+            size = extract_number_from_filename(filename)
+            if size < maxsize:
+                G,scale = read_instance(instances_path + filename)
+                if scale != None:
+                    instances.append(G)
+                    instances_scale.append(scale)
+                    instances_name.append(filename_without_extension)
     return instances,instances_scale,instances_name
 
 
