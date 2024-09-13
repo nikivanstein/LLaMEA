@@ -28,6 +28,7 @@ smac = "^2.2.0"
 google-generativeai = "^0.7.2"
 colorama = "^0.4.6"
 networkx = "^3.3"
+scikit-posthocs = "^0.9.0"
 
 [tool.poetry.dev-dependencies]
 black = "^23.11.0"
