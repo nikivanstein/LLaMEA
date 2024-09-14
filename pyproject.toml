@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "llamea"
-version = "0.9.1"
+version = "0.9.2"
 description = ""
 authors = ["Niki van Stein <n.van.stein@liacs.leidenuniv.nl>"]
 readme = "README.md"
@@ -25,6 +25,9 @@ ollama = "^0.2.1"
 jsonlines = "^4.0.0"
 flask = "^3.0.3"
 flask-socketio = "^5.3.6"
+configspace = "^1.2.0"
+smac = "^2.2.0"
+colorama = "^0.4.6"
 
 [tool.poetry.dev-dependencies]
 black = "^23.11.0"

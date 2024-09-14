@@ -2,14 +2,18 @@
 This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
+import json
 import re
+import signal
 import traceback
 
 import numpy as np
 import concurrent.futures
+from ConfigSpace import ConfigurationSpace
+
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
-from .utils import NoCodeException
+from .utils import NoCodeException, handle_timeout
 
 
 class LLaMEA:
@@ -25,13 +29,15 @@ class LLaMEA:
         api_key,
         n_parents=5,
         n_offspring=10,
-        elitism=False,
         role_prompt="",
         task_prompt="",
         experiment_name="",
+        elitism=False,
+        HPO=False,
         feedback_prompt="",
         budget=100,
         model="gpt-4-turbo",
+        eval_timeout=3600,
         log=True,
         _random=False,
     ):
@@ -47,15 +53,20 @@ class LLaMEA:
             role_prompt (str): A prompt that defines the role of the language model in the optimization task.
             task_prompt (str): A prompt describing the task for the language model to generate optimization algorithms.
             experiment_name (str): The name of the experiment for logging purposes.
+            elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
+            HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
+                In case it is, a configuration space should be asked from the LLM as additional output in json format.
             feedback_prompt (str): Prompt to guide the model on how to provide feedback on the generated algorithms.
             budget (int): The number of generations to run the evolutionary algorithm.
             model (str): The model identifier from OpenAI or ollama to be used.
+            eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             log (bool): Flag to switch of the logging of experiments.
             _random (bool): Flag to switch to random search (purely for debugging).
         """
         self.client = LLMmanager(api_key, model)
         self.api_key = api_key
         self.model = model
+        self.eval_timeout = eval_timeout
         self.f = f  # evaluation function, provides a string as feedback, a numerical value (higher is better), and a possible error string.
         self.role_prompt = role_prompt
         if role_prompt == "":
@@ -112,11 +123,47 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.history = ""
         self.log = log
         self._random = _random
+        self.HPO = HPO
         if self.log:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"{modelname}-ES {experiment_name}")
         else:
             self.logger = None
+
+    def populate_individual(self, session_messages):
+        """
+        Populates an individual with the given prompt and evaluates its fitness.
+        """
+        try:
+            solution, name, algorithm_name_long, config_space = self.llm(
+                session_messages
+            )
+            self.last_solution = solution
+            (
+                self.last_feedback,
+                self.last_fitness,
+                self.last_error,
+                complete_log,
+            ) = self.evaluate_fitness(solution, name, algorithm_name_long, config_space)
+
+        except NoCodeException:
+            self.last_fitness = -np.Inf
+            self.last_feedback = "No code was extracted."
+        except Exception as e:
+            self.last_fitness = -np.Inf
+            self.last_error = repr(e) + traceback.format_exc()
+            self.last_feedback = f"An exception occured: {self.last_error}."
+            print(self.last_error)
+
+        if self.log:
+            complete_log["_generation"] = self.generation
+            complete_log["_name"] = name
+            complete_log["_fitness"] = self.last_fitness
+            complete_log["_error"] = self.last_error
+            complete_log["_feedback"] = self.last_feedback
+            complete_log["_solution"] = solution
+            complete_log["_long_name"] = algorithm_name_long
+            self.logger.log_others(complete_log)
 
     def initialize(self):
         """
@@ -175,7 +222,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             session_messages (list): A list of dictionaries with keys 'role' and 'content' to simulate a conversation with the language model.
 
         Returns:
-            tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and the complete message.
+            tuple: A tuple containing the new algorithm code, its class name, its full descriptive name and an optional configuration space object.
 
         Raises:
             NoCodeException: If the language model fails to return any code.
@@ -192,6 +239,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             self.logger.log_conversation(self.model, message)
         new_algorithm = self.extract_algorithm_code(message)
 
+        config_space = None
+        if self.HPO:
+            config_space = self.extract_configspace(message)
+
         algorithm_name = re.findall(
             "class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_algorithm, re.IGNORECASE
         )[0]
@@ -200,9 +251,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             algorithm_name_long = algorithm_name
 
         # extract algorithm name and algorithm
-        return new_algorithm, algorithm_name, algorithm_name_long, message
+        return new_algorithm, algorithm_name, algorithm_name_long, message, config_space
 
-    def evaluate_fitness(self, solution, name, long_name):
+    def evaluate_fitness(self, solution, name, long_name, config_space=None):
         """
         Evaluates the fitness of the provided solution by invoking the evaluation function `f`.
         This method handles error reporting and logs the feedback, fitness, and errors encountered.
@@ -211,16 +262,41 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             solution (str): The solution code to evaluate.
             name (str): The name of the algorithm.
             long_name (str): The full descriptive name of the algorithm.
+            config_space (ConfigSpace): An optional configuration space object to perform HPO on the algorithm.
 
         Returns:
             tuple: A tuple containing feedback (string), fitness (float), and error message (string).
         """
         # Implement fitness evaluation and error handling logic.
-        feedback, fitness, error = self.f(solution, name, long_name)
+        if self.log:
+            self.logger.log_code(self.generation, name, solution)
+        complete_log = {}
+
+        signal.signal(signal.SIGALRM, handle_timeout)
+        signal.alarm(self.eval_timeout)
+        try:
+            if self.HPO:
+                if self.log:
+                    self.logger.log_configspace(self.generation, name, config_space)
+                feedback, fitness, error, complete_log = self.f(
+                    solution, name, long_name, config_space, self.logger
+                )
+            else:
+                feedback, fitness, error, complete_log = self.f(
+                    solution, name, long_name, self.logger
+                )
+        except TimeoutError:
+            print("It took too long to finish the evaluation")
+            feedback = "The evaluation took too long."
+            fitness = -np.Inf
+            error = "The evaluation took too long."
+        finally:
+            signal.alarm(0)
+
         self.history += f"\nYou already tried {long_name}, with score: {fitness}"
         if error != "":
             self.history += f" with error: {error}"
-        return feedback, fitness, error
+        return feedback, fitness, error, complete_log
 
     def construct_prompt(self, solution, feedback):
         """
@@ -287,6 +363,28 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             new_population = offspring[: self.n_parents]
 
         return new_population
+
+    def extract_configspace(self, message):
+        """
+        Extracts the configuration space definition in json from a given message string using regular expressions.
+
+        Args:
+            message (str): The message string containing the algorithm code.
+
+        Returns:
+            ConfigSpace: Extracted configuration space object.
+        """
+        print("Extracting configuration space")
+        pattern = r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
+        c = None
+        for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
+            print("group", m.group(1))
+            try:
+                c = ConfigurationSpace(eval(m.group(1)))
+            except Exception as e:
+                print(e.with_traceback)
+                pass
+        return c
 
     def extract_algorithm_code(self, message):
         """

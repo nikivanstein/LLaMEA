@@ -3,6 +3,20 @@ from datetime import datetime
 
 import jsonlines
 import numpy as np
+from ConfigSpace.read_and_write import json as cs_json
+
+
+def convert_to_serializable(data):
+    if isinstance(data, dict):
+        return {key: convert_to_serializable(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_to_serializable(item) for item in data]
+    elif isinstance(data, np.integer):
+        return int(data)
+    elif isinstance(data, np.floating):
+        return float(data)
+    else:
+        return data
 
 
 class ExperimentLogger:
@@ -28,6 +42,7 @@ class ExperimentLogger:
         today = datetime.today().strftime("%m-%d_%H%M%S")
         dirname = f"exp-{today}-{name}"
         os.mkdir(dirname)
+        os.mkdir(f"{dirname}/configspace")
         os.mkdir(f"{dirname}/code")
         os.mkdir(f"{dirname}/fail")
         return dirname
@@ -63,6 +78,15 @@ class ExperimentLogger:
                     f"{self.dirname}/fail/{self.attempt}-{name}.txt", "w"
                 ) as file:
                     file.write(p["complete_message"])
+    def log_others(self, others):
+        """
+        Logs the given dictionary in a general logfile.
+
+        Args:
+            others (dict): Stuff to be logged.
+        """
+        with jsonlines.open(f"{self.dirname}/log.jsonl", "a") as file:
+            file.write(convert_to_serializable(others))
 
     def log_code(self, attempt, algorithm_name, code):
         """
@@ -93,12 +117,20 @@ class ExperimentLogger:
         ) as file:
             file.write(code)
 
-    def log_aucs(self, attempt, aucs):
+    def log_configspace(self, attempt, algorithm_name, config_space):
         """
-        Logs the given AOCCs (Area Over the Convergence Curve, named here auc) into a file, named based on the attempt number.
+        Logs the provided configuration space (str) into a file, uniquely named based on the attempt number and algorithm name.
 
         Args:
-            attempt (int): The attempt number corresponding to the AOCCs.
-            aucs (array_like): An array of AUC scores to be saved.
+            attempt (int): The attempt number of the code execution.
+            algorithm_name (str): The name of the algorithm used.
+            config_space (ConfigSpace): The Config space to be logged.
         """
-        np.savetxt(f"{self.dirname}/try-{attempt}-aucs.txt", aucs)
+        with open(
+            f"{self.dirname}/configspace/try-{attempt}-{algorithm_name}.py", "w"
+        ) as file:
+            if config_space != None:
+                file.write(cs_json.write(config_space))
+            else:
+                file.write("Failed to extract config space")
+        self.attempt = attempt

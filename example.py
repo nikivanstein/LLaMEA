@@ -14,7 +14,7 @@ experiment_name ="pop10-50"
 def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
     auc_mean = 0
     auc_std = 0
-    detailed_aucs = [0,0,0,0,0]
+    detailed_aucs = [0, 0, 0, 0, 0]
     exec(code, globals())
     
     error = ""
@@ -37,7 +37,7 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
                         algorithm(problem)
                     except OverBudgetException:
                         pass
-                    
+
                     auc = correct_aoc(problem, l2, budget)
                     aucs.append(auc)
                     detail_aucs.append(auc)
@@ -69,15 +69,18 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
 
     feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
     if details:
-        feedback = (f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name_long} on Separable functions was {detailed_aucs[0]:.02f}, "
-                    f"on functions with low or moderate conditioning {detailed_aucs[1]:.02f}, "
-                    f"on functions with high conditioning and unimodal {detailed_aucs[2]:.02f}, "
-                    f"on Multi-modal functions with adequate global structure {detailed_aucs[3]:.02f}, "
-                    f"and on Multi-modal functions with weak global structure {detailed_aucs[4]:.02f}")
-
+        feedback = (
+            f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name_long} on Separable functions was {detailed_aucs[0]:.02f}, "
+            f"on functions with low or moderate conditioning {detailed_aucs[1]:.02f}, "
+            f"on functions with high conditioning and unimodal {detailed_aucs[2]:.02f}, "
+            f"on Multi-modal functions with adequate global structure {detailed_aucs[3]:.02f}, "
+            f"and on Multi-modal functions with weak global structure {detailed_aucs[4]:.02f}"
+        )
 
     print(algorithm_name_long, algorithm, auc_mean, auc_std)
-    return feedback, auc_mean, error
+    complete_log = {"aucs": aucs}
+
+    return feedback, auc_mean, error, complete_log
 
 
 task_prompt = """

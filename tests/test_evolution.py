@@ -16,7 +16,7 @@ f_try = 0
 def f(code, name, longname, logger):
     global f_try
     f_try += 1
-    return f"feedback {name} {f_try}", f_try*0.1, ""
+    return f"feedback {name} {f_try}", f_try*0.1, "", {}
 
 def test_evolutionary_process():
     """Test the evolutionary process loop to ensure it updates generations."""

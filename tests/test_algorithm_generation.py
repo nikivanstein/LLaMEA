@@ -15,13 +15,13 @@ def test_algorithm_generation():
     """Test the algorithm generation process."""
 
     def f(code, name, longname):
-        return f"feedback {name}", 1.0, ""
+        return f"feedback {name}", 1.0, "", {}
 
     optimizer = LLaMEA(f, api_key="test_key", experiment_name="test generation", log=False)
     response = "# Name: Long Example Algorithm\n# Code:\n```python\nclass ExampleAlgorithm:\n    pass\n```"
     optimizer.client.chat = MagicMock(return_value=response)
 
-    algorithm_code, algorithm_name, algorithm_long_name = optimizer.llm(session_messages=[{"role": "system", "content": "test prompt"}])
+    algorithm_code, algorithm_name, algorithm_long_name, _ = optimizer.llm(session_messages=[{"role": "system", "content": "test prompt"}])
 
     
     assert algorithm_long_name == "Long Example Algorithm", f"Algorithm long name should be extracted correctly, is {algorithm_long_name}"
