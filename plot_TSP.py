@@ -236,11 +236,14 @@ plt.savefig(f"plot_TSP_HPO_prompts.png")
 
 
 plt.clf()
+
+
+plt.figure(figsize=(6, 4))
 ### Plot per benchmark evaluation
 x_line = np.arange(budget) * 5 #5 full benchmark evaluations per prompt for LLaMEA-HPO
 
 for i in range(len(convergence_lines_HPO)):
-    plt.plot(x_line, -convergence_lines_HPO[i], linestyle="dotted",color='C1')
+    plt.plot(x_line, -convergence_lines_HPO[i], linestyle="dotted",color='C0')
 #mean_convergence_HPO = -1 * np.array(convergence_lines).mean(axis=0)
 #std_HPO = np.array(convergence_lines).std(axis=0)
 plt.plot(
@@ -284,6 +287,7 @@ for exp_dir in exp_dirs:
     convergence_lines.append(np.array(conv_line))
 
 for i in range(len(convergence_lines)):
+    print(i)
     plt.plot(np.arange(len(convergence_lines[i])), -convergence_lines[i], linestyle="dotted",color='C1')
 
 mean_convergence = -1 * np.array(convergence_lines).mean(axis=0)
@@ -315,7 +319,7 @@ plt.xlim(0, 500)
 plt.legend()
 plt.tight_layout()
 plt.savefig(f"plot_TSP_HPO_eval.png")
-
+plt.clf()
 
 # Code diff curves
 plt.figure(figsize=(6, 4))

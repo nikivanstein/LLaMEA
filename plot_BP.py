@@ -53,9 +53,10 @@ experiments_dirs = [
     #"exp-09-06_070243-gpt-4o-2024-05-13-ES BP-HPO-long",
     "exp-09-06_122145-gpt-4o-2024-05-13-ES BP-HPO-long",
     "exp-09-02_095606-gpt-4o-2024-05-13-ES BP-HPO-long",
-    "exp-08-30_141720-gpt-4o-2024-05-13-ES BP-HPO-long"
+    "exp-08-30_141720-gpt-4o-2024-05-13-ES BP-HPO-long",
+    "exp-09-09_082321-gpt-4o-2024-05-13-ES BP-HPO-long-large"
 ]
-budget = 100
+budget = 500
 
 label_main = "LLaMEA-HPO"
 
