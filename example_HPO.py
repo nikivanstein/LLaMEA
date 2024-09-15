@@ -22,7 +22,7 @@ from smac import AlgorithmConfigurationFacade
 
 
 def evaluateBBOBWithHPO(
-    solution
+    solution, explogger = None
 ):
     """
     Evaluates an optimization algorithm on the BBOB (Black-Box Optimization Benchmarking) suite and computes
@@ -33,6 +33,9 @@ def evaluateBBOBWithHPO(
     -----------
     solution : dict
         A dictionary containing "_solution" (the code to evaluate), "_name", "_description" and "_configspace"
+
+    explogger : logger
+        A class to log additional stuff for the experiment.
 
     Returns:
     --------
@@ -105,7 +108,7 @@ def evaluateBBOBWithHPO(
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
     error = ""
     
-    if "_configspace" not in solution:
+    if "_configspace" not in solution.keys():
         # No HPO possible, evaluate only the default
         incumbent = {}
         error = "The configuration space was not properly formatted or not present in your answer. The evaluation was done on the default configuration."

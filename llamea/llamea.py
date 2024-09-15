@@ -105,6 +105,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 # Description: <short-description>
 # Code: <code>
 """
+            if HPO:
+                self.task_prompt += "\n# Space: <configuration_space>"
         else:
             self.task_prompt = task_prompt
         self.feedback_prompt = feedback_prompt
@@ -114,6 +116,13 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 f"# Description: <short-description>\n"
                 f"# Code: <code>"
             )
+            if HPO:
+                self.feedback_prompt = (
+                    f"Either refine or redesign to improve the selected solution (and give it a new one-line description and SMAC configuration space). Give the response in the format:\n"
+                    f"# Description: <short-description>\n"
+                    f"# Code: <code>\n"
+                    f"# Space: <configuration_space>"
+                )
         self.budget = budget
         self.n_parents = n_parents
         self.n_offspring = n_offspring
@@ -231,15 +240,12 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
         # Implement fitness evaluation and error handling logic.
-        if self.log:
-            self.logger.log_code(self.generation, individual["_name"], individual["_solution"])
-
         signal.signal(signal.SIGALRM, handle_timeout)
         signal.alarm(self.eval_timeout)
         updated_individual = {}
         try:
             updated_individual = self.f(
-                individual
+                individual, self.logger
             )
         except TimeoutError:
             updated_individual = individual

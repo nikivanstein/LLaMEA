@@ -11,10 +11,12 @@ ai_model = "codellama:7b" # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b
 experiment_name ="pop10-50"
 
 
-def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
+def evaluateBBOB(solution, explogger = None, details=False):
     auc_mean = 0
     auc_std = 0
     detailed_aucs = [0, 0, 0, 0, 0]
+    code = solution["_solution"]
+    algorithm_name = solution["_name"]
     exec(code, globals())
     
     error = ""
@@ -67,30 +69,33 @@ def evaluateBBOB(code, algorithm_name, algorithm_name_long, details=False):
         i+=1
     np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
 
-    feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
+    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
     if details:
         feedback = (
-            f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name_long} on Separable functions was {detailed_aucs[0]:.02f}, "
+            f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name} on Separable functions was {detailed_aucs[0]:.02f}, "
             f"on functions with low or moderate conditioning {detailed_aucs[1]:.02f}, "
             f"on functions with high conditioning and unimodal {detailed_aucs[2]:.02f}, "
             f"on Multi-modal functions with adequate global structure {detailed_aucs[3]:.02f}, "
             f"and on Multi-modal functions with weak global structure {detailed_aucs[4]:.02f}"
         )
 
-    print(algorithm_name_long, algorithm, auc_mean, auc_std)
-    complete_log = {"aucs": aucs}
+    print(algorithm_name, algorithm, auc_mean, auc_std)
+    solution["_fitness"] = auc_mean
+    solution["_feedback"] = feedback
+    solution["aucs"] = aucs
 
-    return feedback, auc_mean, error, complete_log
+    return solution
 
 
 task_prompt = """
 The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
-Give an excellent and novel heuristic algorithm to solve this task and also give it a name. Give the response in the format:
-# Name: <name>
+Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea. Give the response in the format:
+# Description: <short-description>
 # Code: <code>
 """
 
 for experiment_i in range(5):
-    es = LLaMEA(evaluateBBOB, n_parents=10, n_offspring=50, api_key=api_key, task_prompt=task_prompt, experiment_name=experiment_name, model=ai_model, elitism=True, budget=1000)
+    #A 1+1 strategy
+    es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt, experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=1000)
     print(es.run())
