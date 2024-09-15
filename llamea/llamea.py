@@ -158,9 +158,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             """
             Initializes a single solution.
             """
-            new_individual = {
-                "_id": str(uuid.uuid4())  # Generate a unique ID for the new individual
-            }
+
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {"role": "user", "content": self.task_prompt},
@@ -179,7 +177,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
                 ] = f"An exception occured: {traceback.format_exc()}."
                 print(new_individual["_error"])
 
-            self.run_history.append(new_individual)  # update the history
+            new_individual["_id"] = str(uuid.uuid4())
+            new_individual["_generation"] = self.generation
+
+            # self.run_history.append(new_individual)  # update the history (not currently used)
             return new_individual
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -188,7 +189,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             )
 
         self.generation += self.n_parents
-        self.population = population  # Save the entire population if needed
+        self.population = population  # Save the entire population
         self.update_best()
 
     def llm(self, session_messages):
