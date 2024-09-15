@@ -137,13 +137,17 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.worst_value = -np.Inf
         if minimization:
             self.worst_value = np.Inf
-        self.best_so_far = {"_fitness": self.worst_value, "_solution": "", "_name":"", "_description": ""}
+        self.best_so_far = {
+            "_fitness": self.worst_value,
+            "_solution": "",
+            "_name": "",
+            "_description": "",
+        }
         if self.log:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
         else:
             self.logger = None
-
 
     def initialize(self):
         """
@@ -163,19 +167,19 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             ]
             try:
                 individual = self.llm(session_messages)
-                new_individual = self.evaluate_fitness(
-                    individual
-                )
+                new_individual = self.evaluate_fitness(individual)
             except NoCodeException:
                 new_individual["_fitness"] = self.worst_value
                 new_individual["_feedback"] = "No code was extracted."
             except Exception as e:
                 new_individual["_fitness"] = self.worst_value
                 new_individual["_error"] = repr(e) + traceback.format_exc()
-                new_individual["_feedback"] = f"An exception occured: {traceback.format_exc()}."
+                new_individual[
+                    "_feedback"
+                ] = f"An exception occured: {traceback.format_exc()}."
                 print(new_individual["_error"])
 
-            self.run_history.append(new_individual) #update the history
+            self.run_history.append(new_individual)  # update the history
             return new_individual
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -217,10 +221,11 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         new_individual["_configspace"] = None
         if self.HPO:
             new_individual["_configspace"] = self.extract_configspace(message)
-            
 
         new_individual["_name"] = re.findall(
-            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_individual["_solution"], re.IGNORECASE
+            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
+            new_individual["_solution"],
+            re.IGNORECASE,
         )[0]
         new_individual["_description"] = self.extract_algorithm_description(message)
         if new_individual["_description"] == "":
@@ -244,9 +249,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         signal.alarm(self.eval_timeout)
         updated_individual = {}
         try:
-            updated_individual = self.f(
-                individual, self.logger
-            )
+            updated_individual = self.f(individual, self.logger)
         except TimeoutError:
             updated_individual = individual
             updated_individual["_feedback"] = "The evaluation took too long."
@@ -270,13 +273,15 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         """
         # Generate the current population summary
         population_summary = "\n".join(
-            [f"{ind['_name']}: {ind['_description']} (Score: {ind['_fitness']})"
-            for ind in self.population]
+            [
+                f"{ind['_name']}: {ind['_description']} (Score: {ind['_fitness']})"
+                for ind in self.population
+            ]
         )
-        solution = individual['_solution']
-        description = individual['_description']
-        feedback = individual['_feedback']
-        #TODO make a random selection between multiple feedback prompts (mutations)
+        solution = individual["_solution"]
+        description = individual["_description"]
+        feedback = individual["_feedback"]
+        # TODO make a random selection between multiple feedback prompts (mutations)
 
         final_prompt = f"""{self.task_prompt}
 The current population of algorithms already evaluated (name, description, score) is:
@@ -294,7 +299,7 @@ With code:
 """
         session_messages = [
             {"role": "system", "content": self.role_prompt},
-            {"role": "user", "content": final_prompt}
+            {"role": "user", "content": final_prompt},
         ]
 
         if self._random:  # not advised to use, only for debugging purposes
@@ -425,22 +430,24 @@ With code:
             Evolves a single solution by constructing a new prompt,
             querying the LLM, and evaluating the fitness.
             """
-            new_prompt = self.construct_prompt(
-                individual
-            )
+            new_prompt = self.construct_prompt(individual)
             evolved_individual = copy.deepcopy(individual)
 
-            evolved_individual["_id"] = str(uuid.uuid4())  # Generate a unique ID for the new individual
-            evolved_individual["_parent_id"] = individual["_id"] # Link to the parent
+            evolved_individual["_id"] = str(
+                uuid.uuid4()
+            )  # Generate a unique ID for the new individual
+            evolved_individual["_parent_id"] = individual["_id"]  # Link to the parent
             try:
                 evolved_individual = self.llm(new_prompt)
-                evolved_individual = self.evaluate_fitness(
-                    evolved_individual
-                )
+                evolved_individual = self.evaluate_fitness(evolved_individual)
             except NoCodeException:
-                evolved_individual["_feedback"] =  "No code was extracted. The code should be encapsulated with ``` in your response."
+                evolved_individual[
+                    "_feedback"
+                ] = "No code was extracted. The code should be encapsulated with ``` in your response."
                 evolved_individual["_fitness"] = self.worst_value
-                evolved_individual["_error"] = "The code should be encapsulated with ``` in your response."
+                evolved_individual[
+                    "_error"
+                ] = "The code should be encapsulated with ``` in your response."
             except Exception as e:
                 error = repr(e)
                 evolved_individual["_feedback"] = f"An exception occurred: {error}."

@@ -73,7 +73,6 @@ class ExperimentLogger:
             self.log_others(p)
             self.attempt += 1
 
-
     def log_others(self, others):
         """
         Logs the given dictionary in a general logfile.
@@ -98,7 +97,6 @@ class ExperimentLogger:
         ) as file:
             file.write(code)
         self.attempt = attempt
-
 
     def log_configspace(self, attempt, algorithm_name, config_space):
         """
