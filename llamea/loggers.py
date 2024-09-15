@@ -44,7 +44,6 @@ class ExperimentLogger:
         os.mkdir(dirname)
         os.mkdir(f"{dirname}/configspace")
         os.mkdir(f"{dirname}/code")
-        os.mkdir(f"{dirname}/fail")
         return dirname
 
     def log_conversation(self, role, content):
@@ -68,16 +67,13 @@ class ExperimentLogger:
 
     def log_population(self, population):
         for p in population:
-            self.log_code(self.attempt, p["name"], p["solution"])
-            self.log_aucs(self.attempt, [p["fitness"]])
+            self.log_code(self.attempt, p["_name"], p["_solution"])
+            if "_configspace" in p.keys():
+                self.log_configspace(self.attempt, p["_name"], p["_configspace"])
+            self.log_others(p)
             self.attempt += 1
 
-            if p["fitness"] == -np.Inf and p["complete_message"] != "":
-                name = p["name"]
-                with open(
-                    f"{self.dirname}/fail/{self.attempt}-{name}.txt", "w"
-                ) as file:
-                    file.write(p["complete_message"])
+
     def log_others(self, others):
         """
         Logs the given dictionary in a general logfile.
@@ -103,19 +99,6 @@ class ExperimentLogger:
             file.write(code)
         self.attempt = attempt
 
-    def log_failed_code(self, attempt, algorithm_name, code):
-        """
-        Logs the provided code into a file, uniquely named based on the attempt number and algorithm name.
-
-        Args:
-            attempt (int): The attempt number of the code execution.
-            algorithm_name (str): The name of the algorithm used.
-            code (str): The source code to be logged.
-        """
-        with open(
-            f"{self.dirname}/code/fail-{attempt}-{algorithm_name}.py", "w"
-        ) as file:
-            file.write(code)
 
     def log_configspace(self, attempt, algorithm_name, config_space):
         """

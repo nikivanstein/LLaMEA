@@ -10,6 +10,8 @@ import traceback
 import numpy as np
 import concurrent.futures
 from ConfigSpace import ConfigurationSpace
+import uuid
+import copy
 
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
@@ -39,6 +41,7 @@ class LLaMEA:
         model="gpt-4-turbo",
         eval_timeout=3600,
         log=True,
+        minimization=False,
         _random=False,
     ):
         """
@@ -61,6 +64,7 @@ class LLaMEA:
             model (str): The model identifier from OpenAI or ollama to be used.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
             log (bool): Flag to switch of the logging of experiments.
+            minimization (bool): Whether we minimize or maximize the objective function. Defaults to False.
             _random (bool): Flag to switch to random search (purely for debugging).
         """
         self.client = LLMmanager(api_key, model)
@@ -97,8 +101,8 @@ class RandomSearch:
             
         return self.f_opt, self.x_opt
 ```
-Give an excellent and novel heuristic algorithm to solve this task and also give it a name. Give the response in the format:
-# Name: <name>
+Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description, describing the main idea. Give the response in the format:
+# Description: <short-description>
 # Code: <code>
 """
         else:
@@ -106,8 +110,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.feedback_prompt = feedback_prompt
         if feedback_prompt == "":
             self.feedback_prompt = (
-                f"Either refine or redesign to improve the selected solution (and give it a distinct name). Give the response in the format:\n"
-                f"# Name: <name>\n"
+                f"Either refine or redesign to improve the selected solution (and give it a new one-line description). Give the response in the format:\n"
+                f"# Description: <short-description>\n"
                 f"# Code: <code>"
             )
         self.budget = budget
@@ -116,54 +120,21 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         self.population = []
         self.elitism = elitism
         self.generation = 0
-        self.best_solution = None
-        self.best_fitness = -np.Inf
-        self.best_error = ""
-        self.last_error = ""
-        self.history = ""
+        self.run_history = []
         self.log = log
         self._random = _random
         self.HPO = HPO
+        self.minimization = minimization
+        self.worst_value = -np.Inf
+        if minimization:
+            self.worst_value = np.Inf
+        self.best_so_far = {"_fitness": self.worst_value, "_solution": "", "_name":"", "_description": ""}
         if self.log:
             modelname = self.model.replace(":", "_")
-            self.logger = ExperimentLogger(f"{modelname}-ES {experiment_name}")
+            self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
         else:
             self.logger = None
 
-    def populate_individual(self, session_messages):
-        """
-        Populates an individual with the given prompt and evaluates its fitness.
-        """
-        try:
-            solution, name, algorithm_name_long, config_space = self.llm(
-                session_messages
-            )
-            self.last_solution = solution
-            (
-                self.last_feedback,
-                self.last_fitness,
-                self.last_error,
-                complete_log,
-            ) = self.evaluate_fitness(solution, name, algorithm_name_long, config_space)
-
-        except NoCodeException:
-            self.last_fitness = -np.Inf
-            self.last_feedback = "No code was extracted."
-        except Exception as e:
-            self.last_fitness = -np.Inf
-            self.last_error = repr(e) + traceback.format_exc()
-            self.last_feedback = f"An exception occured: {self.last_error}."
-            print(self.last_error)
-
-        if self.log:
-            complete_log["_generation"] = self.generation
-            complete_log["_name"] = name
-            complete_log["_fitness"] = self.last_fitness
-            complete_log["_error"] = self.last_error
-            complete_log["_feedback"] = self.last_feedback
-            complete_log["_solution"] = solution
-            complete_log["_long_name"] = algorithm_name_long
-            self.logger.log_others(complete_log)
 
     def initialize(self):
         """
@@ -174,36 +145,29 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             """
             Initializes a single solution.
             """
-            solution = ""
-            name = ""
-            complete_message = ""
+            new_individual = {
+                "_id": str(uuid.uuid4())  # Generate a unique ID for the new individual
+            }
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {"role": "user", "content": self.task_prompt},
             ]
             try:
-                solution, name, algorithm_name_long, complete_message = self.llm(session_messages)
-                feedback, fitness, error = self.evaluate_fitness(
-                    solution, name, algorithm_name_long
+                individual = self.llm(session_messages)
+                new_individual = self.evaluate_fitness(
+                    individual
                 )
             except NoCodeException:
-                fitness = -np.Inf
-                feedback = "No code was extracted."
-                error = ""
+                new_individual["_fitness"] = self.worst_value
+                new_individual["_feedback"] = "No code was extracted."
             except Exception as e:
-                fitness = -np.Inf
-                error = repr(e) + traceback.format_exc()
-                feedback = f"An exception occurred: {error}."
-                print(error)
+                new_individual["_fitness"] = self.worst_value
+                new_individual["_error"] = repr(e) + traceback.format_exc()
+                new_individual["_feedback"] = f"An exception occured: {traceback.format_exc()}."
+                print(new_individual["_error"])
 
-            return {
-                "name": name,
-                "solution": solution,
-                "fitness": fitness,
-                "error": error,
-                "feedback": feedback,
-                "complete_message": complete_message,
-            }
+            self.run_history.append(new_individual) #update the history
+            return new_individual
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             population = list(
@@ -237,89 +201,97 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 
         if self.log:
             self.logger.log_conversation(self.model, message)
-        new_algorithm = self.extract_algorithm_code(message)
 
-        config_space = None
+        new_individual = {}
+        new_individual["_solution"] = self.extract_algorithm_code(message)
+
+        new_individual["_configspace"] = None
         if self.HPO:
-            config_space = self.extract_configspace(message)
+            new_individual["_configspace"] = self.extract_configspace(message)
+            
 
-        algorithm_name = re.findall(
-            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_algorithm, re.IGNORECASE
+        new_individual["_name"] = re.findall(
+            "class\\s*(\\w*)(?:\\(\\w*\\))?\\:", new_individual["_solution"], re.IGNORECASE
         )[0]
-        algorithm_name_long = self.extract_algorithm_name(message)
-        if algorithm_name_long == "":
-            algorithm_name_long = algorithm_name
+        new_individual["_description"] = self.extract_algorithm_description(message)
+        if new_individual["_description"] == "":
+            new_individual["_description"] = new_individual["_name"]
 
-        # extract algorithm name and algorithm
-        return new_algorithm, algorithm_name, algorithm_name_long, message, config_space
+        return new_individual
 
-    def evaluate_fitness(self, solution, name, long_name, config_space=None):
+    def evaluate_fitness(self, individual):
         """
-        Evaluates the fitness of the provided solution by invoking the evaluation function `f`.
+        Evaluates the fitness of the provided individual by invoking the evaluation function `f`.
         This method handles error reporting and logs the feedback, fitness, and errors encountered.
 
         Args:
-            solution (str): The solution code to evaluate.
-            name (str): The name of the algorithm.
-            long_name (str): The full descriptive name of the algorithm.
-            config_space (ConfigSpace): An optional configuration space object to perform HPO on the algorithm.
+            individual (dict): Including required keys "_solution", "_name", "_description" and optional "_configspace" and others.
 
         Returns:
-            tuple: A tuple containing feedback (string), fitness (float), and error message (string).
+            tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
         # Implement fitness evaluation and error handling logic.
         if self.log:
-            self.logger.log_code(self.generation, name, solution)
-        complete_log = {}
+            self.logger.log_code(self.generation, individual["_name"], individual["_solution"])
 
         signal.signal(signal.SIGALRM, handle_timeout)
         signal.alarm(self.eval_timeout)
+        updated_individual = {}
         try:
-            if self.HPO:
-                if self.log:
-                    self.logger.log_configspace(self.generation, name, config_space)
-                feedback, fitness, error, complete_log = self.f(
-                    solution, name, long_name, config_space, self.logger
-                )
-            else:
-                feedback, fitness, error, complete_log = self.f(
-                    solution, name, long_name, self.logger
-                )
+            updated_individual = self.f(
+                individual
+            )
         except TimeoutError:
+            updated_individual = individual
+            updated_individual["_feedback"] = "The evaluation took too long."
             print("It took too long to finish the evaluation")
-            feedback = "The evaluation took too long."
-            fitness = -np.Inf
-            error = "The evaluation took too long."
+            updated_individual["_fitness"] = self.worst_value
+            updated_individual["_error"] = "The evaluation took too long."
         finally:
             signal.alarm(0)
 
-        self.history += f"\nYou already tried {long_name}, with score: {fitness}"
-        if error != "":
-            self.history += f" with error: {error}"
-        return feedback, fitness, error, complete_log
+        return updated_individual
 
-    def construct_prompt(self, solution, feedback):
+    def construct_prompt(self, individual):
         """
-        Constructs a new session prompt for the language model based on the best or the latest solution,
-        depending on whether elitism is enabled.
+        Constructs a new session prompt for the language model based on a selected individual.
 
         Args:
-            solution (str): The solution to evolve.
-            feedback (str): The feedback on this solution.
+            individual (dict): The individual to mutate.
 
         Returns:
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
         """
+        # Generate the current population summary
+        population_summary = "\n".join(
+            [f"{ind['_name']}: {ind['_description']} (Score: {ind['_fitness']})"
+            for ind in self.population]
+        )
+        solution = individual['_solution']
+        description = individual['_description']
+        feedback = individual['_feedback']
+        #TODO make a random selection between multiple feedback prompts (mutations)
+
+        final_prompt = f"""{self.task_prompt}
+The current population of algorithms already evaluated (name, description, score) is:
+{population_summary}
+
+The selected solution to update is:
+{description}
+
+With code:
+{solution}
+
+{feedback}
+
+{self.feedback_prompt}
+"""
         session_messages = [
             {"role": "system", "content": self.role_prompt},
-            {"role": "user", "content": self.task_prompt},
-            {"role": "user", "content": self.history},
-            {"role": "assistant", "content": f"The selected solution is: \n{solution}"},
-            {"role": "user", "content": feedback},
-            {"role": "user", "content": self.feedback_prompt},
+            {"role": "user", "content": final_prompt}
         ]
 
-        if self._random:  # not advised to use
+        if self._random:  # not advised to use, only for debugging purposes
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {"role": "user", "content": self.task_prompt},
@@ -331,12 +303,16 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         """
         Update the best individual in the new population
         """
-        best_individual = max(self.population, key=lambda x: x["fitness"])
-        if best_individual["fitness"] > self.best_fitness:
-            self.best_solution = best_individual["solution"]
-            self.best_fitness = best_individual["fitness"]
-            self.best_error = best_individual["error"]
-            self.best_feedback = best_individual["feedback"]
+        if self.minimization == False:
+            best_individual = max(self.population, key=lambda x: x["_fitness"])
+
+            if best_individual["_fitness"] > self.best_so_far["_fitness"]:
+                self.best_so_far = best_individual
+        else:
+            best_individual = min(self.population, key=lambda x: x["_fitness"])
+
+            if best_individual["_fitness"] < self.best_so_far["_fitness"]:
+                self.best_so_far = best_individual
 
     def selection(self, parents, offspring):
         """
@@ -349,16 +325,17 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         Returns:
             list: List of new selected population.
         """
+        reverse = self.minimization == False
         if self.elitism:
             # Combine parents and offspring
             combined_population = parents + offspring
-            # Sort by fitness, descending (assuming higher fitness is better)
-            combined_population.sort(key=lambda x: x["fitness"], reverse=True)
+            # Sort by fitness
+            combined_population.sort(key=lambda x: x["_fitness"], reverse=reverse)
             # Select the top individuals to form the new population
             new_population = combined_population[: self.n_parents]
         else:
-            # Sort offspring by fitness, descending
-            offspring.sort(key=lambda x: x["fitness"], reverse=True)
+            # Sort offspring by fitness
+            offspring.sort(key=lambda x: x["_fitness"], reverse=reverse)
             # Select the top individuals from offspring to form the new population
             new_population = offspring[: self.n_parents]
 
@@ -407,9 +384,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             print(message, "contained no ``` code block")
             raise NoCodeException
 
-    def extract_algorithm_name(self, message):
+    def extract_algorithm_description(self, message):
         """
-        Extracts algorithm name from a given message string using regular expressions.
+        Extracts algorithm description from a given message string using regular expressions.
 
         Args:
             message (str): The message string containing the algorithm name and code.
@@ -417,7 +394,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         Returns:
             str: Extracted algorithm name or empty string.
         """
-        pattern = r"#\s*Name:\s*(.*)"
+        pattern = r"#\s*Description\s*:\s*(.*)"
         match = re.search(pattern, message, re.IGNORECASE)
         if match:
             return match.group(1)
@@ -443,33 +420,28 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             querying the LLM, and evaluating the fitness.
             """
             new_prompt = self.construct_prompt(
-                individual["solution"], individual["feedback"]
+                individual
             )
-            solution = ""
-            name = ""
-            complete_message = ""
+            evolved_individual = copy.deepcopy(individual)
+
+            evolved_individual["_id"] = str(uuid.uuid4())  # Generate a unique ID for the new individual
+            evolved_individual["_parent_id"] = individual["_id"] # Link to the parent
             try:
-                solution, name, algorithm_name_long, complete_message = self.llm(new_prompt)
-                feedback, fitness, error = self.evaluate_fitness(
-                    solution, name, algorithm_name_long
+                evolved_individual = self.llm(new_prompt)
+                evolved_individual = self.evaluate_fitness(
+                    evolved_individual
                 )
             except NoCodeException:
-                fitness = -np.Inf
-                feedback = "No code was extracted."
-                error = "The code should be encapsulated with ``` in your response."
+                evolved_individual["_feedback"] =  "No code was extracted. The code should be encapsulated with ``` in your response."
+                evolved_individual["_fitness"] = self.worst_value
+                evolved_individual["_error"] = "The code should be encapsulated with ``` in your response."
             except Exception as e:
-                fitness = -np.Inf
                 error = repr(e)
-                feedback = f"An exception occurred: {error}."
+                evolved_individual["_feedback"] = f"An exception occurred: {error}."
+                evolved_individual["_fitness"] = self.worst_value
+                evolved_individual["_error"] = error
 
-            return {
-                "name": name,
-                "solution": solution,
-                "fitness": fitness,
-                "error": error,
-                "feedback": feedback,
-                "complete_message": complete_message,
-            }
+            return evolved_individual
 
         while self.generation < self.budget:
             # pick a new offspring population using random sampling
