@@ -207,19 +207,16 @@ Give an excellent and novel heuristic algorithm including its configuration spac
 # Space: <configuration_space>
 """
 
-feedback_prompt = (
-    f"Either refine or redesign to improve the solution (and give it a distinct one-line description). Give the response in the format:\n"
-    f"# Description: <short-description>\n"
-    f"# Code: <code>\n"
-    f"# Space: <configuration_space>"
-)
+feedback_prompts = [
+    f"Either refine or redesign to improve the solution (and give it a distinct one-line description)."
+]
 
 for experiment_i in [1]:
     es = LLaMEA(
         evaluateBBOBWithHPO,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
-        feedback_prompt=feedback_prompt,
+        mutation_prompts=feedback_prompts,
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,

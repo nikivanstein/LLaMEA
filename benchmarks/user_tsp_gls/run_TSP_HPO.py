@@ -119,18 +119,12 @@ An example configuration space is as follows:
 }
 ```
 
-Give an excellent and novel heuristic including its configuration space to solve this task and also give it a one-line description with the main idea. Give the response in the format:
-# Description: <short-description>
-# Code: <code>
-# Space: <configuration_space>
+Give an excellent and novel heuristic including its configuration space to solve this task and also give it a one-line description with the main idea.
 """
 
-feedback_prompt = (
-    f"Either refine or redesign to improve the solution (and give it a one-line description with the main idea). Give the response in the format:\n"
-    f"# Description: <short-description>\n"
-    f"# Code: <code>\n"
-    f"# Space: <configuration_space>"
-)
+feedback_prompts = [
+    "Either refine or redesign to improve the solution (and give it a one-line description with the main idea)."
+]
 
 for experiment_i in [1]:
     es = LLaMEA(
@@ -139,7 +133,7 @@ for experiment_i in [1]:
         n_offspring=20,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
-        feedback_prompt=feedback_prompt,
+        mutation_prompts=feedback_prompts,
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,

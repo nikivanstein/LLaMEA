@@ -12,6 +12,7 @@ import concurrent.futures
 from ConfigSpace import ConfigurationSpace
 import uuid
 import copy
+import random
 
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
@@ -36,7 +37,7 @@ class LLaMEA:
         experiment_name="",
         elitism=False,
         HPO=False,
-        feedback_prompt="",
+        mutation_prompts=[],
         budget=100,
         model="gpt-4-turbo",
         eval_timeout=3600,
@@ -59,7 +60,7 @@ class LLaMEA:
             elitism (bool): Flag to decide if elitism should be used in the evolutionary process.
             HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
-            feedback_prompt (str): Prompt to guide the model on how to provide feedback on the generated algorithms.
+            mutation_prompts (list): A list of prompts to specify mutation operators to the LLM model. Each mutation, a random choice from this list is made.
             budget (int): The number of generations to run the evolutionary algorithm.
             model (str): The model identifier from OpenAI or ollama to be used.
             eval_timeout (int): The number of seconds one evaluation can maximum take (to counter infinite loops etc.). Defaults to 1 hour.
@@ -101,28 +102,27 @@ class RandomSearch:
             
         return self.f_opt, self.x_opt
 ```
-Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description, describing the main idea. Give the response in the format:
-# Description: <short-description>
-# Code: <code>
+Give an excellent and novel heuristic algorithm to solve this task.
 """
-            if HPO:
-                self.task_prompt += "\n# Space: <configuration_space>"
         else:
             self.task_prompt = task_prompt
-        self.feedback_prompt = feedback_prompt
-        if feedback_prompt == "":
-            self.feedback_prompt = (
-                f"Either refine or redesign to improve the selected solution (and give it a new one-line description). Give the response in the format:\n"
-                f"# Description: <short-description>\n"
-                f"# Code: <code>"
-            )
-            if HPO:
-                self.feedback_prompt = (
-                    f"Either refine or redesign to improve the selected solution (and give it a new one-line description and SMAC configuration space). Give the response in the format:\n"
-                    f"# Description: <short-description>\n"
-                    f"# Code: <code>\n"
-                    f"# Space: <configuration_space>"
-                )
+
+        self.output_format_prompt = """
+Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
+# Description: <short-description>
+# Code: <code>"""
+        if HPO:
+            self.output_format_prompt = """
+Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
+# Description: <short-description>
+# Code: <code>
+# Space: <configuration_space>"""
+        self.mutation_prompts = mutation_prompts
+        if mutation_prompts == None:
+            self.mutation_prompts = [
+                "Refine the strategy of the selected solution to improve it.",  # small mutation
+                # "Generate a new algorithm that is different from the solutions you have tried before.", #new random solution
+            ]
         self.budget = budget
         self.n_parents = n_parents
         self.n_offspring = n_offspring
@@ -161,7 +161,10 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
-                {"role": "user", "content": self.task_prompt},
+                {
+                    "role": "user",
+                    "content": self.task_prompt + self.output_format_prompt,
+                },
             ]
             try:
                 individual = self.llm(session_messages)
@@ -283,6 +286,8 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         description = individual["_description"]
         feedback = individual["_feedback"]
         # TODO make a random selection between multiple feedback prompts (mutations)
+        mutation_operator = random.choice(self.mutation_prompts)
+        individual["_mutation_prompt"] = mutation_operator
 
         final_prompt = f"""{self.task_prompt}
 The current population of algorithms already evaluated (name, description, score) is:
@@ -296,7 +301,8 @@ With code:
 
 {feedback}
 
-{self.feedback_prompt}
+{mutation_operator}
+{self.output_format_prompt}
 """
         session_messages = [
             {"role": "system", "content": self.role_prompt},
