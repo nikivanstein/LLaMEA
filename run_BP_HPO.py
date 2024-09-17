@@ -7,8 +7,8 @@ import time
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "BP-HPO-long-large"
+ai_model = "gpt-3.5-turbo-0125"#"gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+experiment_name = "BP-HPO-long-3.5"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -99,9 +99,7 @@ class Sample:
         self.s2 = s2
 
     def score(self, item, bins):
-        scores = (bins / np.sqrt(np.log(bins - item))) ** (bins / np.sqrt(item)) * np.exp(item * (bins - item)) * np.sqrt(item)
-        scores /= (self.s1 / bins) * np.sqrt(item)
-        scores *= self.s2 # scaler constant factor
+        # code here
     return scores
 ```
 
@@ -138,7 +136,7 @@ for experiment_i in [1]:
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,
-        budget=500,
+        budget=100,
         elitism=True,
         HPO=True,
     )
