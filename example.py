@@ -80,7 +80,7 @@ def evaluateBBOB(solution, explogger = None, details=False):
         )
 
     print(algorithm_name, algorithm, auc_mean, auc_std)
-    solution.add_metadata("aucs") = aucs
+    solution.add_metadata("aucs", aucs)
     solution.set_scores(auc_mean, feedback)
 
     return solution

@@ -78,7 +78,7 @@ def evaluateWithHPO(
     dict_hyperparams = dict(incumbent)
     feedback = f"The heuristic {algorithm_name} got an average fitness of {fitness:0.2f} (closer to zero is better)  with optimal hyperparameters {dict_hyperparams}."
 
-    solution.add_metadata("incumbent") = dict_hyperparams
+    solution.add_metadata("incumbent", dict_hyperparams)
     solution.set_scores(fitness, feedback)
     
     return solution
@@ -140,6 +140,7 @@ for experiment_i in [1]:
         experiment_name=experiment_name,
         model=ai_model,
         budget=1000,
+        eval_timeout=600,
         elitism=True,
         HPO=True,
     )
