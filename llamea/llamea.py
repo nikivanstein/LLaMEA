@@ -17,6 +17,7 @@ import random
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException, handle_timeout
+from .individual import Individual
 
 
 # TODOs:
@@ -141,12 +142,9 @@ Provide the Python code, a one-line description with the main idea (without ente
         self.worst_value = -np.Inf
         if minimization:
             self.worst_value = np.Inf
-        self.best_so_far = {
-            "_fitness": self.worst_value,
-            "_solution": "",
-            "_name": "",
-            "_description": "",
-        }
+        self.best_so_far = Individual("", "", "", None, 0, None)
+        self.best_so_far.set_scores(self.worst_value, "", "")
+
         if self.log:
             modelname = self.model.replace(":", "_")
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
@@ -162,7 +160,7 @@ Provide the Python code, a one-line description with the main idea (without ente
             """
             Initializes a single solution.
             """
-            new_individual = {"_solution":"", "_name":"", "_description":""}
+            new_individual = Individual("", "", "", None, self.generation, None)
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {
@@ -174,20 +172,16 @@ Provide the Python code, a one-line description with the main idea (without ente
                 new_individual = self.llm(session_messages)
                 new_individual = self.evaluate_fitness(new_individual)
             except NoCodeException:
-                new_individual["_fitness"] = self.worst_value
-                new_individual["_feedback"] = "No code was extracted."
+                new_individual.set_scores(self.worst_value, "No code was extracted.")
             except Exception as e:
-                new_individual["_fitness"] = self.worst_value
-                new_individual["_error"] = repr(e) + traceback.format_exc()
-                new_individual[
-                    "_feedback"
-                ] = f"An exception occured: {traceback.format_exc()}."
-                print(new_individual["_error"])
+                new_individual.set_scores(
+                    self.worst_value,
+                    f"An exception occured: {traceback.format_exc()}.",
+                    repr(e) + traceback.format_exc(),
+                )
+                print(new_individual.error)
 
-            new_individual["_id"] = str(uuid.uuid4())
-            new_individual["_generation"] = self.generation
-
-            # self.run_history.append(new_individual)  # update the history (not currently used)
+            self.run_history.append(new_individual)  # update the history
             return new_individual
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -195,11 +189,11 @@ Provide the Python code, a one-line description with the main idea (without ente
                 executor.map(lambda _: initialize_single(), range(self.n_parents))
             )
 
-        self.generation += self.n_parents
+        self.generation += 1
         self.population = population  # Save the entire population
         self.update_best()
 
-    def llm(self, session_messages):
+    def llm(self, session_messages, parent_id=None):
         """
         Interacts with a language model to generate or mutate solutions based on the provided session messages.
 
@@ -223,21 +217,17 @@ Provide the Python code, a one-line description with the main idea (without ente
         if self.log:
             self.logger.log_conversation(self.model, message)
 
-        new_individual = {}
-        new_individual["_solution"] = self.extract_algorithm_code(message)
-
-        new_individual["_configspace"] = None
-        if self.HPO:
-            new_individual["_configspace"] = self.extract_configspace(message)
-
-        new_individual["_name"] = re.findall(
+        code = self.extract_algorithm_code(message)
+        name = re.findall(
             "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
             new_individual["_solution"],
             re.IGNORECASE,
         )[0]
-        new_individual["_description"] = self.extract_algorithm_description(message)
-        if new_individual["_description"] == "":
-            new_individual["_description"] = new_individual["_name"]
+        desc = self.extract_algorithm_description(message)
+        cs = None
+        if self.HPO:
+            cs = self.extract_configspace(message)
+        new_individual = Individual(code, name, desc, cs, self.generation, parent_id)
 
         return new_individual
 
@@ -253,7 +243,6 @@ Provide the Python code, a one-line description with the main idea (without ente
             tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
         # Implement fitness evaluation and error handling logic.
-        updated_individual = {}
         updated_individual = self.f(individual, self.logger)
 
         return updated_individual
@@ -269,18 +258,13 @@ Provide the Python code, a one-line description with the main idea (without ente
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
         """
         # Generate the current population summary
-        population_summary = "\n".join(
-            [
-                f"{ind['_name']}: {ind['_description']} (Score: {ind['_fitness']})"
-                for ind in self.population
-            ]
-        )
-        solution = individual["_solution"]
-        description = individual["_description"]
-        feedback = individual["_feedback"]
+        population_summary = "\n".join([ind.get_summary() for ind in self.population])
+        solution = individual.solution
+        description = individual.description
+        feedback = individual.feedback
         # TODO make a random selection between multiple feedback prompts (mutations)
         mutation_operator = random.choice(self.mutation_prompts)
-        individual["_mutation_prompt"] = mutation_operator
+        individual.set_mutation_prompt(mutation_operator)
 
         final_prompt = f"""{self.task_prompt}
 The current population of algorithms already evaluated (name, description, score) is:
@@ -315,14 +299,14 @@ With code:
         Update the best individual in the new population
         """
         if self.minimization == False:
-            best_individual = max(self.population, key=lambda x: x["_fitness"])
+            best_individual = max(self.population, key=lambda x: x.fitness)
 
-            if best_individual["_fitness"] > self.best_so_far["_fitness"]:
+            if best_individual.fitness > self.best_so_far.fitness:
                 self.best_so_far = best_individual
         else:
-            best_individual = min(self.population, key=lambda x: x["_fitness"])
+            best_individual = min(self.population, key=lambda x: x.fitness)
 
-            if best_individual["_fitness"] < self.best_so_far["_fitness"]:
+            if best_individual.fitness < self.best_so_far.fitness:
                 self.best_so_far = best_individual
 
     def selection(self, parents, offspring):
@@ -337,16 +321,18 @@ With code:
             list: List of new selected population.
         """
         reverse = self.minimization == False
+
+        # TODO filter out non-diverse solutions
         if self.elitism:
             # Combine parents and offspring
             combined_population = parents + offspring
             # Sort by fitness
-            combined_population.sort(key=lambda x: x["_fitness"], reverse=reverse)
+            combined_population.sort(key=lambda x: x.fitness, reverse=reverse)
             # Select the top individuals to form the new population
             new_population = combined_population[: self.n_parents]
         else:
             # Sort offspring by fitness
-            offspring.sort(key=lambda x: x["_fitness"], reverse=reverse)
+            offspring.sort(key=lambda x: x.fitness, reverse=reverse)
             # Select the top individuals from offspring to form the new population
             new_population = offspring[: self.n_parents]
 
@@ -431,41 +417,54 @@ With code:
             querying the LLM, and evaluating the fitness.
             """
             new_prompt = self.construct_prompt(individual)
-            evolved_individual = copy.deepcopy(individual)
+            evolved_individual = individual.copy()
 
-            evolved_individual["_id"] = str(
-                uuid.uuid4()
-            )  # Generate a unique ID for the new individual
-            evolved_individual["_parent_id"] = individual["_id"]  # Link to the parent
             try:
-                evolved_individual = self.llm(new_prompt)
+                evolved_individual = self.llm(new_prompt, evolved_individual.parent_id)
                 evolved_individual = self.evaluate_fitness(evolved_individual)
             except NoCodeException:
-                evolved_individual[
-                    "_feedback"
-                ] = "No code was extracted. The code should be encapsulated with ``` in your response."
-                evolved_individual["_fitness"] = self.worst_value
-                evolved_individual[
-                    "_error"
-                ] = "The code should be encapsulated with ``` in your response."
+                evolved_individual.set_scores(
+                    self.worst_value,
+                    "No code was extracted. The code should be encapsulated with ``` in your response.",
+                    "The code should be encapsulated with ``` in your response.",
+                )
             except Exception as e:
                 error = repr(e)
-                evolved_individual["_feedback"] = f"An exception occurred: {error}."
-                evolved_individual["_fitness"] = self.worst_value
-                evolved_individual["_error"] = error
+                evolved_individual.set_scores(
+                    self.worst_value, f"An exception occurred: {error}.", error
+                )
 
+            self.run_history.append(evolved_individual)
             return evolved_individual
 
-        while self.generation < self.budget:
+        while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
-            new_offspring = np.random.choice(
+            new_offspring_population = np.random.choice(
                 self.population, self.n_offspring, replace=True
             )
 
+            new_population = []
             # Use ThreadPoolExecutor for parallel evolution of solutions
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-                new_population = list(executor.map(evolve_solution, new_offspring))
-            self.generation += self.n_offspring
+                # new_population = list(executor.map(evolve_solution, new_offspring_population))
+
+                future_to_offspring = {
+                    executor.submit(evolve_solution, offspring): offspring
+                    for offspring in new_offspring_population
+                }
+
+                for future in concurrent.futures.as_completed(
+                    future_to_offspring, timeout=self.eval_timeout
+                ):
+                    try:
+                        result = future.result(
+                            timeout=self.eval_timeout
+                        )  # Apply timeout for each future result
+                        new_population.append(result)
+                    except concurrent.futures.TimeoutError:
+                        print("Timeout occurred for one of the solutions")
+
+            self.generation += 1
 
             if self.log:
                 self.logger.log_population(new_population)

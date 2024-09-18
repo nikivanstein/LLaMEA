@@ -155,7 +155,7 @@ def evaluateBBOBWithHPO(
     feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
     print(algorithm_name, algorithm, auc_mean, auc_std)
 
-    solution["aucs"] = aucs
+    solution["_instance_fitnesses"] = aucs
     solution["incumbent"] = dict_hyperparams
     solution["_feedback"] = feedback
     solution["_fitness"] = auc_mean

@@ -67,23 +67,22 @@ class ExperimentLogger:
 
     def log_population(self, population):
         for p in population:
-            self.log_code(self.attempt, p["_name"], p["_solution"])
+            self.log_code(self.attempt, p.name, p.solution)
             if "_configspace" in p.keys():
-                self.log_configspace(self.attempt, p["_name"], p["_configspace"])
-            self.log_others(p)
+                self.log_configspace(self.attempt, p.name, p.configspace)
+            self.log_individual(p)
             self.attempt += 1
 
-    def log_others(self, others):
+    def log_individual(self, individual):
         """
-        Logs the given dictionary in a general logfile.
+        Logs the given individual in a general logfile.
 
         Args:
-            others (dict): Stuff to be logged.
+            individual (Individual): potential solution to be logged.
         """
-        if "_configspace" in others.keys():
-            others["_configspace"] = others["_configspace"].to_serialized_dict()
+        ind_dict = individual.to_dict()
         with jsonlines.open(f"{self.dirname}/log.jsonl", "a") as file:
-            file.write(convert_to_serializable(others))
+            file.write(convert_to_serializable(ind_dict))
 
     def log_code(self, attempt, algorithm_name, code):
         """

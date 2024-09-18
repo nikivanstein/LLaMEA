@@ -61,6 +61,7 @@ def evaluateWithHPO(
         scenario = Scenario(
             configuration_space,
             #name=algorithm_name,
+            walltime_limit=300, #5 minutes
             name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=True,
             #min_budget=None,
