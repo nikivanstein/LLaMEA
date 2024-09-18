@@ -19,6 +19,10 @@ from .loggers import ExperimentLogger
 from .utils import NoCodeException, handle_timeout
 
 
+# TODOs:
+# Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
+
+
 class LLaMEA:
     """
     A class that represents the Language Model powered Evolutionary Algorithm (LLaMEA).
@@ -158,7 +162,7 @@ Provide the Python code, a one-line description with the main idea (without ente
             """
             Initializes a single solution.
             """
-
+            new_individual = {"_solution":"", "_name":"", "_description":""}
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {
@@ -167,8 +171,8 @@ Provide the Python code, a one-line description with the main idea (without ente
                 },
             ]
             try:
-                individual = self.llm(session_messages)
-                new_individual = self.evaluate_fitness(individual)
+                new_individual = self.llm(session_messages)
+                new_individual = self.evaluate_fitness(new_individual)
             except NoCodeException:
                 new_individual["_fitness"] = self.worst_value
                 new_individual["_feedback"] = "No code was extracted."
@@ -249,19 +253,8 @@ Provide the Python code, a one-line description with the main idea (without ente
             tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
         # Implement fitness evaluation and error handling logic.
-        signal.signal(signal.SIGALRM, handle_timeout)
-        signal.alarm(self.eval_timeout)
         updated_individual = {}
-        try:
-            updated_individual = self.f(individual, self.logger)
-        except TimeoutError:
-            updated_individual = individual
-            updated_individual["_feedback"] = "The evaluation took too long."
-            print("It took too long to finish the evaluation")
-            updated_individual["_fitness"] = self.worst_value
-            updated_individual["_error"] = "The evaluation took too long."
-        finally:
-            signal.alarm(0)
+        updated_individual = self.f(individual, self.logger)
 
         return updated_individual
 

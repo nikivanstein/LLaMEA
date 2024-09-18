@@ -7,8 +7,8 @@ import time
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "BP-HPO-long-large"
+ai_model = "codellama:7b"# "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+experiment_name = "BP-HPO-10-50"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -96,7 +96,7 @@ The heuristic algorithm class should contain two functions an "__init__()" funct
 The output named 'scores' is the scores for the bins for assignment.
 Note that 'item' is of type int, while 'bins' and 'scores' are both Numpy arrays. The novel function should be sufficiently complex in order to achieve better performance. It is important to ensure self-consistency.
 
-An example baseline heuristic that we should improve and to show the structure is as follows.
+An example code template to show the structure is as follows:
 ```python
 import numpy as np
 
@@ -106,9 +106,7 @@ class Sample:
         self.s2 = s2
 
     def score(self, item, bins):
-        scores = (bins / np.sqrt(np.log(bins - item))) ** (bins / np.sqrt(item)) * np.exp(item * (bins - item)) * np.sqrt(item)
-        scores /= (self.s1 / bins) * np.sqrt(item)
-        scores *= self.s2 # scaler constant factor
+        # heuristic here
     return scores
 ```
 
@@ -127,21 +125,23 @@ Give an excellent and novel heuristic including its configuration space to solve
 """
 
 feedback_prompts = [
-    "Either refine or redesign to improve the solution (and give it a one-line description with the main idea)."
+    "Either refine or redesign to improve the solution (and give it a one-line description with the main idea).",
+    "Make small changes to the solution in order to improve it and give a new one-line description.",
+    "Generate a completely new heuristic, approaching it from a different angle."
 ]
 
 for experiment_i in [1]:
     es = LLaMEA(
         evaluateWithHPO,
-        n_parents=4,
-        n_offspring=20,
+        n_parents=10,
+        n_offspring=50,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,
-        budget=500,
+        budget=1000,
         elitism=True,
         HPO=True,
     )

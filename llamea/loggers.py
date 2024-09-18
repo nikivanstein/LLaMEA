@@ -80,6 +80,8 @@ class ExperimentLogger:
         Args:
             others (dict): Stuff to be logged.
         """
+        if "_configspace" in others.keys():
+            others["_configspace"] = others["_configspace"].to_serialized_dict()
         with jsonlines.open(f"{self.dirname}/log.jsonl", "a") as file:
             file.write(convert_to_serializable(others))
 
