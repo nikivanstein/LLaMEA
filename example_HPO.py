@@ -62,8 +62,8 @@ def evaluateBBOBWithHPO(
     """
     auc_mean = 0
     auc_std = 0
-    code = solution["_solution"]
-    algorithm_name = solution["_name"]
+    code = solution.solution
+    algorithm_name = solution.name
     exec(code, globals())
     dim = 5
     budget = 2000 * dim
@@ -113,7 +113,7 @@ def evaluateBBOBWithHPO(
         incumbent = {}
         error = "The configuration space was not properly formatted or not present in your answer. The evaluation was done on the default configuration."
     else:
-        configuration_space = solution["_configspace"]
+        configuration_space = solution.configspace
         scenario = Scenario(
             configuration_space,
             name=str(int(time.time())) + "-" + algorithm_name,
@@ -155,10 +155,9 @@ def evaluateBBOBWithHPO(
     feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
     print(algorithm_name, algorithm, auc_mean, auc_std)
 
-    solution["_instance_fitnesses"] = aucs
-    solution["incumbent"] = dict_hyperparams
-    solution["_feedback"] = feedback
-    solution["_fitness"] = auc_mean
+    solution.add_metadata("aucs") = aucs
+    solution.add_metadata("incumbent") = dict_hyperparams
+    solution.set_scores(auc_mean, feedback)
     
     return solution
 

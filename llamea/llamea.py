@@ -42,7 +42,7 @@ class LLaMEA:
         experiment_name="",
         elitism=False,
         HPO=False,
-        mutation_prompts=[],
+        mutation_prompts=None,
         budget=100,
         model="gpt-4-turbo",
         eval_timeout=3600,
@@ -220,7 +220,7 @@ Provide the Python code, a one-line description with the main idea (without ente
         code = self.extract_algorithm_code(message)
         name = re.findall(
             "class\\s*(\\w*)(?:\\(\\w*\\))?\\:",
-            new_individual["_solution"],
+            code,
             re.IGNORECASE,
         )[0]
         desc = self.extract_algorithm_description(message)
@@ -473,4 +473,4 @@ With code:
             self.population = self.selection(self.population, new_population)
             self.update_best()
 
-        return self.best_solution, self.best_fitness
+        return self.best_so_far

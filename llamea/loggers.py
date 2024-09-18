@@ -68,7 +68,7 @@ class ExperimentLogger:
     def log_population(self, population):
         for p in population:
             self.log_code(self.attempt, p.name, p.solution)
-            if "_configspace" in p.keys():
+            if p.configspace != None:
                 self.log_configspace(self.attempt, p.name, p.configspace)
             self.log_individual(p)
             self.attempt += 1

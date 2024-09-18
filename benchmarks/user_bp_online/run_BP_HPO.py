@@ -26,11 +26,9 @@ bp_prob = BPONLINE()
 def evaluateWithHPO(
     solution, explogger=None
 ):
-    code = solution["_solution"]
-    algorithm_name = solution["_name"]
-    configuration_space=None
-    if "_configspace" in solution.keys():
-        configuration_space = solution["_configspace"]
+    code = solution.solution
+    algorithm_name = solution.name
+    configuration_space=solution.configspace
     
     def evaluate(config, seed=0):
         np.random.seed(seed)
@@ -80,9 +78,8 @@ def evaluateWithHPO(
     dict_hyperparams = dict(incumbent)
     feedback = f"The heuristic {algorithm_name} got an average fitness of {fitness:0.2f} (closer to zero is better)  with optimal hyperparameters {dict_hyperparams}."
 
-    solution["incumbent"] = dict_hyperparams
-    solution["_feedback"] = feedback
-    solution["_fitness"] = fitness
+    solution.add_metadata("incumbent") = dict_hyperparams
+    solution.set_scores(fitness, feedback)
     
     return solution
 

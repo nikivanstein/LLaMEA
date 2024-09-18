@@ -15,8 +15,8 @@ def evaluateBBOB(solution, explogger = None, details=False):
     auc_mean = 0
     auc_std = 0
     detailed_aucs = [0, 0, 0, 0, 0]
-    code = solution["_solution"]
-    algorithm_name = solution["_name"]
+    code = solution.solution
+    algorithm_name = solution.name
     exec(code, globals())
     
     error = ""
@@ -80,9 +80,8 @@ def evaluateBBOB(solution, explogger = None, details=False):
         )
 
     print(algorithm_name, algorithm, auc_mean, auc_std)
-    solution["_fitness"] = auc_mean
-    solution["_feedback"] = feedback
-    solution["aucs"] = aucs
+    solution.add_metadata("aucs") = aucs
+    solution.set_scores(auc_mean, feedback)
 
     return solution
 
