@@ -12,7 +12,7 @@ import time
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "gpt-4o-HPO"
+experiment_name = "photonics"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
@@ -141,8 +141,8 @@ def evaluate(
 
 role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
 task_prompt = """
-The optimization algorithm should handle a wide range of tasks, which is evaluated on the BBOB test suite of 24 noiseless functions. Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function with optional additional arguments and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
-The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between -5.0 (lower bound) and 5.0 (upper bound). The dimensionality can be varied.
+The optimization algorithm should handle photonic problems with a variable dimensionality and a lower bound of 2.5 and upper bound of 105, Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function with optional additional arguments and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between 2.5 (lower bound) and 105.0 (upper bound). The dimensionality can be varied.
 An example of such code (a simple random search), is as follows:
 ```python
 import numpy as np
@@ -156,7 +156,7 @@ class RandomSearch:
         self.f_opt = np.Inf
         self.x_opt = None
         for i in range(self.budget):
-            x = np.random.uniform(func.bounds.lb, func.bounds.ub)
+            x = np.random.uniform(2.5, 105)
             
             f = func(x)
             if f < self.f_opt:
@@ -189,7 +189,7 @@ feedback_prompts = [
 
 for experiment_i in [1]:
     es = LLaMEA(
-        evaluateBBOBWithHPO,
+        evaluate,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
