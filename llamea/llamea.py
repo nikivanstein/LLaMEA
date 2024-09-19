@@ -18,6 +18,7 @@ from .loggers import ExperimentLogger
 from .utils import NoCodeException, handle_timeout
 from .individual import Individual
 
+
 def stop_process_pool(executor):
     for pid, process in executor._processes.items():
         process.terminate()
@@ -364,7 +365,9 @@ With code:
             try:
                 c = ConfigurationSpace(eval(m.group(1)))
             except Exception as e:
-                self.textlog.warning("Could not extract configuration space", e.with_traceback)
+                self.textlog.warning(
+                    "Could not extract configuration space", e.with_traceback
+                )
                 pass
         return c
 
@@ -417,7 +420,7 @@ With code:
         """
         self.progress_bar = iter(tqdm(range(self.budget)))
         self.initialize()  # Initialize a population
-        
+
         if self.log:
             self.logger.log_population(self.population)
 
@@ -447,8 +450,10 @@ With code:
             self.run_history.append(evolved_individual)
             self.progress_bar.update(1)
             return evolved_individual
-        
-        self.logevent(f"Started evolutionary loop, best so far: {self.best_so_far.fitness}")
+
+        self.logevent(
+            f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
+        )
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
             new_offspring_population = np.random.choice(
@@ -457,7 +462,9 @@ With code:
 
             new_population = []
             # Use ThreadPoolExecutor for parallel evolution of solutions
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as executor:
                 # new_population = list(executor.map(evolve_solution, new_offspring_population))
 
                 future_to_offspring = {
@@ -466,7 +473,8 @@ With code:
                 }
                 try:
                     for future in concurrent.futures.as_completed(
-                        future_to_offspring, timeout=self.eval_timeout * (max_workers / max_workers)
+                        future_to_offspring,
+                        timeout=self.eval_timeout * (max_workers / max_workers),
                     ):
                         try:
                             result = future.result(
@@ -474,10 +482,15 @@ With code:
                             )  # Apply timeout for each future result
                             new_population.append(result)
                         except concurrent.futures.TimeoutError:
-                            self.textlog.warning("Timeout occurred for one of the solutions")
+                            self.textlog.warning(
+                                "Timeout occurred for one of the solutions"
+                            )
                 except concurrent.futures.TimeoutError:
-                    self.textlog.warning("Timeout occurred for the as_completed event, pop count:", len(new_population)) 
-                    stop_process_pool(executor) #stop tasks that took too long
+                    self.textlog.warning(
+                        "Timeout occurred for the as_completed event, pop count:",
+                        len(new_population),
+                    )
+                    stop_process_pool(executor)  # stop tasks that took too long
 
             self.generation += 1
 
@@ -487,6 +500,8 @@ With code:
             # Update population and the best solution
             self.population = self.selection(self.population, new_population)
             self.update_best()
-            self.logevent(f"Generation {self.generation}, best so far: {self.best_so_far.fitness}")
+            self.logevent(
+                f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
+            )
 
         return self.best_so_far
