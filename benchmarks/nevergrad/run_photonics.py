@@ -11,7 +11,7 @@ import time
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+ai_model = "codellama:7b" #"gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
 experiment_name = "photonics"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
@@ -45,6 +45,24 @@ Name=small_photonics, dimension=40, shape-of-search-space=(2, 20), constraints=N
 
 """
 
+
+# Perhaps first test class RandomSearch:
+#     def __init__(self, budget=10000, dim=10):
+#         self.budget = budget
+#         self.dim = dim
+
+#     def __call__(self, func):
+#         self.f_opt = np.Inf
+#         self.x_opt = None
+#         for i in range(self.budget):
+#             x = np.random.uniform(2.5, 105)
+            
+#             f = func(x)
+#             if f < self.f_opt:
+#                 self.f_opt = f
+#                 self.x_opt = x
+            
+#         return self.f_opt, self.x_opt
 
 def evaluate(
     solution, explogger = None
@@ -190,6 +208,8 @@ feedback_prompts = [
 for experiment_i in [1]:
     es = LLaMEA(
         evaluate,
+        n_parents=1,
+        n_offspring=1,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,

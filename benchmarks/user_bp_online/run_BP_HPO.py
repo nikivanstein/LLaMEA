@@ -69,9 +69,8 @@ def evaluateWithHPO(
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
             #n_workers=10
         )
-        smac = HyperparameterOptimizationFacade(scenario, evaluate, overwrite=True)
+        smac = HyperparameterOptimizationFacade(scenario, evaluate, overwrite=True, logging_level=30)
         incumbent = smac.optimize()
-        print(dict(incumbent))
         fitness = evaluate(dict(incumbent))
 
     fitness = -1 * fitness #we optimize (not minimize)

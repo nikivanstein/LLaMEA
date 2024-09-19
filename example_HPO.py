@@ -126,7 +126,7 @@ def evaluateBBOBWithHPO(
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
             #n_workers=10
         )
-        smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance)
+        smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance, logging_level=30)
         incumbent = smac.optimize()
 
     # last but not least, perform the final validation

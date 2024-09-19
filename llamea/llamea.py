@@ -2,22 +2,26 @@
 This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
-import json
 import re
-import signal
 import traceback
+import logging
+from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 import numpy as np
 import concurrent.futures
 from ConfigSpace import ConfigurationSpace
-import uuid
-import copy
 import random
 
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException, handle_timeout
 from .individual import Individual
+
+def stop_process_pool(executor):
+    for pid, process in executor._processes.items():
+        process.terminate()
+    executor.shutdown()
 
 
 # TODOs:
@@ -77,7 +81,7 @@ class LLaMEA:
         self.api_key = api_key
         self.model = model
         self.eval_timeout = eval_timeout
-        self.f = f  # evaluation function, provides a string as feedback, a numerical value (higher is better), and a possible error string.
+        self.f = f  # evaluation function, provides an individual as output.
         self.role_prompt = role_prompt
         if role_prompt == "":
             self.role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
@@ -150,6 +154,11 @@ Provide the Python code, a one-line description with the main idea (without ente
             self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
         else:
             self.logger = None
+        self.textlog = logging.getLogger(__name__)
+
+    def logevent(self, event):
+        with logging_redirect_tqdm():
+            self.textlog.info(event)
 
     def initialize(self):
         """
@@ -179,9 +188,10 @@ Provide the Python code, a one-line description with the main idea (without ente
                     f"An exception occured: {traceback.format_exc()}.",
                     repr(e) + traceback.format_exc(),
                 )
-                print(new_individual.error)
+                self.textlog.warning(new_individual.error)
 
             self.run_history.append(new_individual)  # update the history
+            self.progress_bar.update(1)
             return new_individual
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -348,15 +358,13 @@ With code:
         Returns:
             ConfigSpace: Extracted configuration space object.
         """
-        print("Extracting configuration space")
         pattern = r"space\s*:\s*\n*```\n*(?:python)?\n(.*?)\n```"
         c = None
         for m in re.finditer(pattern, message, re.DOTALL | re.IGNORECASE):
-            print("group", m.group(1))
             try:
                 c = ConfigurationSpace(eval(m.group(1)))
             except Exception as e:
-                print(e.with_traceback)
+                self.textlog.warning("Could not extract configuration space", e.with_traceback)
                 pass
         return c
 
@@ -378,7 +386,7 @@ With code:
         if match:
             return match.group(1)
         else:
-            print(message, "contained no ``` code block")
+            self.textlog.warning("Message contained no code block")
             raise NoCodeException
 
     def extract_algorithm_description(self, message):
@@ -398,7 +406,7 @@ With code:
         else:
             return ""
 
-    def run(self):
+    def run(self, max_workers=10):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
         The method iteratively refines solutions through interaction with the language model,
@@ -407,7 +415,9 @@ With code:
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
+        self.progress_bar = iter(tqdm(range(self.budget)))
         self.initialize()  # Initialize a population
+        
         if self.log:
             self.logger.log_population(self.population)
 
@@ -435,8 +445,10 @@ With code:
                 )
 
             self.run_history.append(evolved_individual)
+            self.progress_bar.update(1)
             return evolved_individual
-
+        
+        self.logevent(f"Started evolutionary loop, best so far: {self.best_so_far.fitness}")
         while len(self.run_history) < self.budget:
             # pick a new offspring population using random sampling
             new_offspring_population = np.random.choice(
@@ -445,24 +457,27 @@ With code:
 
             new_population = []
             # Use ThreadPoolExecutor for parallel evolution of solutions
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # new_population = list(executor.map(evolve_solution, new_offspring_population))
 
                 future_to_offspring = {
                     executor.submit(evolve_solution, offspring): offspring
                     for offspring in new_offspring_population
                 }
-
-                for future in concurrent.futures.as_completed(
-                    future_to_offspring, timeout=self.eval_timeout
-                ):
-                    try:
-                        result = future.result(
-                            timeout=self.eval_timeout
-                        )  # Apply timeout for each future result
-                        new_population.append(result)
-                    except concurrent.futures.TimeoutError:
-                        print("Timeout occurred for one of the solutions")
+                try:
+                    for future in concurrent.futures.as_completed(
+                        future_to_offspring, timeout=self.eval_timeout * (max_workers / max_workers)
+                    ):
+                        try:
+                            result = future.result(
+                                timeout=self.eval_timeout
+                            )  # Apply timeout for each future result
+                            new_population.append(result)
+                        except concurrent.futures.TimeoutError:
+                            self.textlog.warning("Timeout occurred for one of the solutions")
+                except concurrent.futures.TimeoutError:
+                    self.textlog.warning("Timeout occurred for the as_completed event, pop count:", len(new_population)) 
+                    stop_process_pool(executor) #stop tasks that took too long
 
             self.generation += 1
 
@@ -472,5 +487,6 @@ With code:
             # Update population and the best solution
             self.population = self.selection(self.population, new_population)
             self.update_best()
+            self.logevent(f"Generation {self.generation}, best so far: {self.best_so_far.fitness}")
 
         return self.best_so_far
