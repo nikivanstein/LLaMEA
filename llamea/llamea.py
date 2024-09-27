@@ -19,10 +19,7 @@ from .utils import NoCodeException, handle_timeout
 from .individual import Individual
 
 
-def stop_process_pool(executor):
-    for pid, process in executor._processes.items():
-        process.terminate()
-    executor.shutdown()
+
 
 
 # TODOs:
@@ -418,7 +415,7 @@ With code:
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
-        self.progress_bar = iter(tqdm(range(self.budget)))
+        self.progress_bar = tqdm(total=self.budget)
         self.initialize()  # Initialize a population
 
         if self.log:
@@ -487,10 +484,10 @@ With code:
                             )
                 except concurrent.futures.TimeoutError:
                     self.textlog.warning(
-                        "Timeout occurred for the as_completed event, pop count:",
-                        len(new_population),
+                        "Timeout occurred for the as_completed event, pop count:" + 
+                        str(len(new_population))
                     )
-                    stop_process_pool(executor)  # stop tasks that took too long
+                    executor.shutdown(False)  # stop tasks that took too long
 
             self.generation += 1
 
@@ -503,5 +500,5 @@ With code:
             self.logevent(
                 f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             )
-
+        self.progress_bar.close()
         return self.best_so_far

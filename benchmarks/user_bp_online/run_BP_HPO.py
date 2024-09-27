@@ -59,7 +59,7 @@ def evaluateWithHPO(
         scenario = Scenario(
             configuration_space,
             #name=algorithm_name,
-            walltime_limit=300, #5 minutes
+            walltime_limit=600, #10 minutes
             name=str(int(time.time())) + "-" + algorithm_name,
             deterministic=True,
             #min_budget=None,
@@ -139,7 +139,7 @@ for experiment_i in [1]:
         experiment_name=experiment_name,
         model=ai_model,
         budget=1000,
-        eval_timeout=600,
+        eval_timeout=1200,
         elitism=True,
         HPO=True,
     )
