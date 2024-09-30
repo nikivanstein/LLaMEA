@@ -47,13 +47,122 @@ def code_compare(code1, code2, printdiff=False):
 
 
 
-## Plot BP curves
+## Plot TSP curves LLaMEA
+experiments_dirs = [
+    "exp-09-27_120032-gpt-4o-2024-05-13-ES TSP",
+    "exp-09-27_120032-gpt-4o-2024-05-13-ES TSP",
+    "exp-09-27_150024-gpt-4o-2024-05-13-ES TSP",
+]
+budget = 500
+
+label_main = "LLaMEA"
+
+convergence_lines = []
+convergence_default_lines = []
+code_diff_ratios_lines = []
+
+best_ever_code =""
+best_ever_name =""
+best_ever_config = {}
+best_ever_fitness = -100
+for i in range(len(experiments_dirs)):
+    convergence = np.ones(budget) * -100
+    #convergence_default = np.zeros(budget)
+    code_diff_ratios = np.zeros(budget)
+    best_so_far = -np.Inf
+    best_so_far_default = 0
+    previous_code = ""
+    previous_config = {}
+    previous_name = ""
+    log_file = experiments_dirs[i] + "/log.jsonl"
+    if os.path.exists(log_file):
+        with jsonlines.open(log_file) as reader:
+            for obj in reader.iter(type=dict, skip_invalid=True):
+                gen = 0
+                fitness = None
+                code_diff = 0
+                code = ""
+                if "_solution" in obj.keys():
+                    code = obj["_solution"]
+                if "_generation" in obj.keys():
+                    gen = obj["_generation"]
+                if "_fitness" in obj.keys():
+                    fitness = obj["_fitness"]
+                    #print(fitness)
+                else:
+                    fitness = None
+
+                if fitness > best_ever_fitness:
+                    best_ever_fitness = fitness
+                    best_ever_code = code
+                    #best_ever_config = obj["incumbent"]
+                    best_ever_name = obj["_name"]
+
+                if fitness <= best_so_far:
+                    code_diff = code_compare(previous_code, code, False)
+                else:
+                    name = obj["_name"]
+                    print(f"-- {gen} -- {previous_name} --> {name}")
+                    code_diff = code_compare(previous_code, code, False)
+                    best_so_far = fitness
+
+                    previous_code = code
+                    previous_name = name
+                    #previous_config = obj["incumbent"]
+                
+                code_diff_ratios[gen] = code_diff
+                convergence[gen] = fitness
+    
+    # now fix the holes
+    best_so_far = -np.Inf
+    for i in range(len(convergence)):
+        if convergence[i] >= best_so_far:
+            best_so_far = convergence[i]
+        else:
+            convergence[i] = best_so_far
+    convergence_lines.append(convergence)
+    code_diff_ratios_lines.append(code_diff_ratios)
+
+print("Best algorithm: ", best_ever_name)
+print(best_ever_code)
+
+
+plt.figure(figsize=(6, 4))
+convergence_lines_DEFAULT = convergence_lines
+for i in range(len(convergence_lines_DEFAULT)):
+    plt.plot(np.arange(budget), -convergence_lines_DEFAULT[i], linestyle="dashed", color='C2')
+    #print(convergence_lines[i])
+
+# convergence curves
+
+#np.save("HPO-BPconvergence_lines.npy", convergence_lines)
+mean_convergence_DEFAULT = -1 * np.array(convergence_lines).mean(axis=0)
+std_DEFAULT = np.array(convergence_lines).std(axis=0)
+plt.plot(
+    np.arange(budget),
+    mean_convergence_DEFAULT,
+    color="C2",
+    linestyle="solid",
+    label="LLaMEA",
+)
+plt.fill_between(
+    np.arange(budget),
+    mean_convergence_DEFAULT - std_DEFAULT,
+    mean_convergence_DEFAULT + std_DEFAULT,
+    color="C2",
+    alpha=0.05,
+)
+
+
+
+
+
+#### PLOT LLaMEA-HPO
 experiments_dirs = [
     "exp-08-29_201655-gpt-4o-2024-05-13-ES TSP-HPO",
-    #"exp-08-30_114546-gpt-4o-2024-05-13-ES TSP-HPO",
-    #"exp-08-30_114606-gpt-4o-2024-05-13-ES TSP-HPO",
     "exp-08-30_142330-gpt-4o-2024-05-13-ES TSP-HPO-deter",
-    "exp-09-02_105043-gpt-4o-2024-05-13-ES TSP-HPO-deter"
+    "exp-09-02_105043-gpt-4o-2024-05-13-ES TSP-HPO-deter",
+    "exp-09-28_191529-gpt-4o-2024-05-13-ES TSP-HPO-inst"
 ]
 budget = 100
 
@@ -149,7 +258,7 @@ print(best_ever_code)
 
 x_line = np.arange(budget)
 
-plt.figure(figsize=(6, 4))
+#plt.figure(figsize=(6, 4))
 convergence_lines_HPO = convergence_lines
 for i in range(len(convergence_lines)):
     plt.plot(x_line, -1*convergence_lines[i], linestyle="dashed",color='C0')
@@ -186,7 +295,7 @@ for exp_dir in exp_dirs:
     for k in range(20):
         with open(exp_dir + f"/population_generation_{k}.json") as f:
             pop = json.load(f)
-        for ind in pop:
+        for ind in pop[::-1]:
             if -1*ind["objective"] > best_so_far:
                 best_so_far = -1*ind["objective"]
             conv_line[teller] = best_so_far
@@ -228,7 +337,7 @@ plt.fill_between(
 plt.ylabel("Objective")
 plt.xlabel("LLM prompts")
 plt.title("Convergence on TSP problems")
-plt.ylim(0, 0.5)
+plt.ylim(0, 1.5)
 plt.xlim(0, 100)
 plt.legend()
 plt.tight_layout()
@@ -240,6 +349,30 @@ plt.clf()
 
 plt.figure(figsize=(6, 4))
 ### Plot per benchmark evaluation
+
+
+x_line = np.arange(len(convergence_lines_DEFAULT[0])) #5 full benchmark evaluations per prompt for LLaMEA-HPO
+
+for i in range(len(convergence_lines_DEFAULT)):
+    plt.plot(x_line, -convergence_lines_DEFAULT[i], linestyle="dotted",color='C2')
+#mean_convergence_HPO = -1 * np.array(convergence_lines).mean(axis=0)
+#std_HPO = np.array(convergence_lines).std(axis=0)
+plt.plot(
+    x_line,
+    mean_convergence_DEFAULT,
+    color="C2",
+    linestyle="solid",
+    label="LLaMEA",
+)
+plt.fill_between(
+    x_line,
+    mean_convergence_DEFAULT - std_DEFAULT,
+    mean_convergence_DEFAULT + std_DEFAULT,
+    color="C2",
+    alpha=0.05,
+)
+
+
 x_line = np.arange(budget) * 5 #5 full benchmark evaluations per prompt for LLaMEA-HPO
 
 for i in range(len(convergence_lines_HPO)):
@@ -272,7 +405,7 @@ for exp_dir in exp_dirs:
     for k in range(20):
         with open(exp_dir + f"/population_generation_{k}.json") as f:
             pop = json.load(f)
-        for ind in pop:
+        for ind in pop[::-1]:
             if -1*ind["objective"] > best_so_far:
                 best_so_far = -1*ind["objective"]
             conv_line[teller] = best_so_far
@@ -314,7 +447,7 @@ plt.fill_between(
 plt.ylabel("Objective")
 plt.xlabel("Benchmark evaluations")
 plt.title("Convergence on TSP problems")
-plt.ylim(0, 0.5)
+plt.ylim(0, 0.6)
 plt.xlim(0, 500)
 plt.legend()
 plt.tight_layout()

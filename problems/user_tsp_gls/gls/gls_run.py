@@ -3,7 +3,7 @@ import time
 import importlib
 import numpy as np
 
-from utils import utils
+from ..utils import utils
 from . import gls_evol
 import traceback
 

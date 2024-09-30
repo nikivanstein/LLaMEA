@@ -123,6 +123,11 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
         """
         Populates an individual with the given prompt and evaluates its fitness.
         """
+        complete_log = {}
+        name = ""
+        solution = ""
+        algorithm_name_long = ""
+        config_space = {}
         try:
             solution, name, algorithm_name_long, config_space = self.llm(
                 session_messages
@@ -271,10 +276,13 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             solution = f"The last tried algorithm is as follows: \n```\n{self.last_solution}\n```\n"
             feedback = self.last_feedback
 
+        history_sentences = self.history.split('\n')
+        last_sentences = history_sentences[-20:]
+        history = '\n'.join(last_sentences)
         session_messages = [
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},
-            {"role": "user", "content": self.history},
+            {"role": "user", "content": history},
             {"role": "assistant", "content": solution},
             {"role": "user", "content": feedback},
             {"role": "user", "content": self.feedback_prompt},

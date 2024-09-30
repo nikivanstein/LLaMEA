@@ -6,8 +6,8 @@ import types
 import warnings
 import sys
 import importlib
-from utils import readTSPRandom
-from gls.gls_run import solve_instance
+from .utils import readTSPRandom
+from .gls.gls_run import solve_instance
 import concurrent
 import random
 
@@ -16,6 +16,9 @@ def solve_instance_parallel(i, opt_cost, instance, coord, time_limit, ite_max, p
     heuristic_module = importlib.import_module(f"{heuristic_name}")
     heuristic = importlib.reload(heuristic_module)
     return solve_instance(i, opt_cost, instance, coord, time_limit, ite_max, perturbation_moves, heuristic)
+
+def solve_instance_parallel_alg(i, opt_cost, instance, coord, time_limit, ite_max, perturbation_moves, alg):
+    return solve_instance(i, opt_cost, instance, coord, time_limit, ite_max, perturbation_moves, alg)
 
 
 def solve_instance_parallel_TSP(i, opt_cost, instance, time_limit, ite_max, perturbation_moves, heuristic_name):
@@ -83,6 +86,25 @@ class TSPGLS():
                                  heuristic)
             gaps[i] = gap
 
+        return np.mean(gaps)
+    
+    def evaluateGLSfast(self,heuristic):
+
+        gaps = np.zeros(self.n_inst_eva)
+        
+        with concurrent.futures.ProcessPoolExecutor(max_workers=50) as executor:
+            # Submit tasks for parallel execution
+            futures = [
+                executor.submit(solve_instance_parallel_alg, i, self.opt_costs[i], self.instances[i], 
+                                self.coords[i], self.time_limit, self.ite_max, 
+                                self.perturbation_moves, heuristic)
+                for i in range(self.n_inst_eva)
+            ]
+
+            # Collect the results as they complete
+            for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                gaps[i] = future.result()
+                
         return np.mean(gaps)
     
     def testGLS(self,heuristic_name,instance_dataset):

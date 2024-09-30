@@ -49,12 +49,119 @@ def code_compare(code1, code2, printdiff=False):
 
 ## Plot BP curves
 experiments_dirs = [
-    #"exp-09-02_095524-gpt-4o-2024-05-13-ES BP-HPO-long",
-    #"exp-09-06_070243-gpt-4o-2024-05-13-ES BP-HPO-long",
+    "exp-09-27_101132-gpt-4o-2024-05-13-ES BP1000",
+    "exp-09-27_163854-gpt-4o-2024-05-13-ES BP1000",
+    "exp-09-28_191936-gpt-4o-2024-05-13-ES BP1000"
+]
+budget = 1000
+
+label_main = "LLaMEA"
+
+convergence_lines = []
+convergence_default_lines = []
+code_diff_ratios_lines = []
+
+best_ever_code =""
+best_ever_name =""
+best_ever_config = {}
+best_ever_fitness = -100
+for i in range(len(experiments_dirs)):
+    convergence = np.ones(budget) * -100
+    #convergence_default = np.zeros(budget)
+    code_diff_ratios = np.zeros(budget)
+    best_so_far = -np.Inf
+    best_so_far_default = 0
+    previous_code = ""
+    previous_config = {}
+    previous_name = ""
+    log_file = experiments_dirs[i] + "/log.jsonl"
+    if os.path.exists(log_file):
+        with jsonlines.open(log_file) as reader:
+            for obj in reader.iter(type=dict, skip_invalid=True):
+                gen = 0
+                fitness = None
+                code_diff = 0
+                code = ""
+                if "_solution" in obj.keys():
+                    code = obj["_solution"]
+                if "_generation" in obj.keys():
+                    gen = obj["_generation"]
+                if "_fitness" in obj.keys():
+                    fitness = obj["_fitness"]
+                    #print(fitness)
+                else:
+                    fitness = None
+
+                if fitness > best_ever_fitness:
+                    best_ever_fitness = fitness
+                    best_ever_code = code
+                    #best_ever_config = obj["incumbent"]
+                    best_ever_name = obj["_name"]
+
+                if fitness <= best_so_far:
+                    code_diff = code_compare(previous_code, code, False)
+                else:
+                    name = obj["_name"]
+                    print(f"-- {gen} -- {previous_name} --> {name}")
+                    code_diff = code_compare(previous_code, code, False)
+                    best_so_far = fitness
+
+                    previous_code = code
+                    previous_name = name
+                    #previous_config = obj["incumbent"]
+                
+                code_diff_ratios[gen] = code_diff
+                convergence[gen] = fitness
+    
+    # now fix the holes
+    best_so_far = -np.Inf
+    for i in range(len(convergence)):
+        if convergence[i] >= best_so_far:
+            best_so_far = convergence[i]
+        else:
+            convergence[i] = best_so_far
+    convergence_lines.append(convergence)
+    code_diff_ratios_lines.append(code_diff_ratios)
+
+print("Best algorithm: ", best_ever_name)
+print(best_ever_code)
+
+
+plt.figure(figsize=(6, 4))
+convergence_lines_DEFAULT = convergence_lines
+for i in range(len(convergence_lines_DEFAULT)):
+    plt.plot(np.arange(budget), -convergence_lines_DEFAULT[i], linestyle="dashed", color='C2')
+    #print(convergence_lines[i])
+
+# convergence curves
+
+#np.save("HPO-BPconvergence_lines.npy", convergence_lines)
+mean_convergence_DEFAULT = -1 * np.array(convergence_lines).mean(axis=0)
+std_DEFAULT = np.array(convergence_lines).std(axis=0)
+plt.plot(
+    np.arange(budget),
+    mean_convergence_DEFAULT,
+    color="C2",
+    linestyle="solid",
+    label="LLaMEA",
+)
+plt.fill_between(
+    np.arange(budget),
+    mean_convergence_DEFAULT - std_DEFAULT,
+    mean_convergence_DEFAULT + std_DEFAULT,
+    color="C2",
+    alpha=0.05,
+)
+
+
+
+
+
+#### PLOT LLaMEA-HPO
+experiments_dirs = [
     "exp-09-06_122145-gpt-4o-2024-05-13-ES BP-HPO-long",
     "exp-09-02_095606-gpt-4o-2024-05-13-ES BP-HPO-long",
     "exp-08-30_141720-gpt-4o-2024-05-13-ES BP-HPO-long",
-    "exp-09-09_082321-gpt-4o-2024-05-13-ES BP-HPO-long-large"
 ]
 budget = 500
 
@@ -130,7 +237,6 @@ print("Best algorithm: ", best_ever_name, "with config:", best_ever_config)
 print(best_ever_code)
 
 
-plt.figure(figsize=(6, 4))
 convergence_lines_HPO = convergence_lines
 for i in range(len(convergence_lines_HPO)):
     plt.plot(np.arange(budget), -convergence_lines_HPO[i], linestyle="dashed", color='C0')
@@ -167,7 +273,7 @@ for exp_dir in exp_dirs:
     for k in range(20):
         with open(exp_dir + f"/population_generation_{k}.json") as f:
             pop = json.load(f)
-        for ind in pop:
+        for ind in pop[::-1]:
             # if teller > budget:
             #     break
             if -1*ind["objective"] > best_so_far:
@@ -208,6 +314,7 @@ plt.fill_between(
 #plt.yscale('symlog')
 #plt.xscale('symlog')
 plt.xlim(0, 100)
+plt.ylim(0, 0.06)
 plt.legend()
 plt.ylabel("Objective")
 plt.xlabel("LLM prompts")
@@ -216,6 +323,28 @@ plt.tight_layout()
 plt.savefig(f"plot_BP_HPO_prompt.png")
 
 plt.clf()
+
+
+x_line = np.arange(len(convergence_lines_DEFAULT[0]))
+
+for i in range(len(convergence_lines_DEFAULT)):
+    plt.plot(x_line, -convergence_lines_DEFAULT[i], linestyle="dotted", color='C2')
+#print(x_line)
+plt.plot(
+    x_line,
+    mean_convergence_DEFAULT,
+    color="C2",
+    linestyle="solid",
+    label="LLaMEA",
+)
+plt.fill_between(
+    x_line,
+    mean_convergence_DEFAULT - std_DEFAULT,
+    mean_convergence_DEFAULT + std_DEFAULT,
+    color="C2",
+    alpha=0.05,
+)
+
 
 x_line = np.arange(budget) * 10
 
@@ -248,7 +377,7 @@ for exp_dir in exp_dirs:
     for k in range(20):
         with open(exp_dir + f"/population_generation_{k}.json") as f:
             pop = json.load(f)
-        for ind in pop:
+        for ind in pop[::-1]:
             # if teller > budget:
             #     break
             if -1*ind["objective"] > best_so_far:
@@ -288,6 +417,7 @@ plt.fill_between(
 #plt.yscale('symlog')
 #plt.xscale('symlog')
 plt.xlim(0, 1000)
+plt.ylim(0, 0.06)
 plt.legend()
 plt.ylabel("Objective")
 plt.xlabel("Benchmark evaluations")
