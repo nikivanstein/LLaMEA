@@ -162,9 +162,11 @@ cython_debug/
 
 iohllm/alg-old.py
 old-data/
-exp-*/*
+runs/
 ioh/
 algorithms/
 ioh2/
 iohbest10/
 user_tsp_gls/algs/
+benchmarks/LLMdesignedEA/LLMdesignedEA-comp
+benchmarks/user_tsp_gls/tsplib/
