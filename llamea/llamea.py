@@ -276,9 +276,9 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
             solution = f"The last tried algorithm is as follows: \n```\n{self.last_solution}\n```\n"
             feedback = self.last_feedback
 
-        history_sentences = self.history.split('\n')
+        history_sentences = self.history.split("\n")
         last_sentences = history_sentences[-20:]
-        history = '\n'.join(last_sentences)
+        history = "\n".join(last_sentences)
         session_messages = [
             {"role": "system", "content": self.role_prompt},
             {"role": "user", "content": self.task_prompt},

@@ -162,9 +162,10 @@ cython_debug/
 
 iohllm/alg-old.py
 old-data/
-exp-*/*
+runs/
 ioh/
 algorithms/
 ioh2/
 iohbest10/
 #llamea/tspalgs/
+benchmarks/LLMdesignedEA-comp
