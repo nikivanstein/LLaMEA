@@ -170,3 +170,7 @@ iohbest10/
 user_tsp_gls/algs/
 benchmarks/LLMdesignedEA/LLMdesignedEA-comp
 benchmarks/user_tsp_gls/tsplib/
+
+# snellius server sbatch jobs output
+nohup.out
+sbatch_jobs/
