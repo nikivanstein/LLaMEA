@@ -81,9 +81,15 @@ class LLMmanager:
         elif "Llama" in self.model:
             history = []
             for msg in session_messages:
+                if msg["role"] == "LLaMEA":
+                    role = "user"
+                elif "Llama" in msg["role"]:
+                    role = "assistant"
+                else:
+                    role = msg["role"]
                 history.append(
                     {
-                        "role": msg["role"],
+                        "role": role,
                         "content": msg["content"]
                     }
                 )
