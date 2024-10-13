@@ -17,9 +17,7 @@ from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException, handle_timeout
 from .individual import Individual
-
-
-
+from .fmut_beta import discrete_power_law_distribution
 
 
 # TODOs:
@@ -149,7 +147,8 @@ Provide the Python code, a one-line description with the main idea (without ente
 
         if self.log:
             modelname = self.model.replace(":", "_")
-            self.logger = ExperimentLogger(f"LLaMEA-{modelname}-{experiment_name}")
+            self.logger = ExperimentLogger(
+                f"LLaMEA-{modelname}-{experiment_name}")
         else:
             self.logger = None
         self.textlog = logging.getLogger(__name__)
@@ -167,7 +166,8 @@ Provide the Python code, a one-line description with the main idea (without ente
             """
             Initializes a single solution.
             """
-            new_individual = Individual("", "", "", None, self.generation, None)
+            new_individual = Individual(
+                "", "", "", None, self.generation, None)
             session_messages = [
                 {"role": "system", "content": self.role_prompt},
                 {
@@ -179,7 +179,8 @@ Provide the Python code, a one-line description with the main idea (without ente
                 new_individual = self.llm(session_messages)
                 new_individual = self.evaluate_fitness(new_individual)
             except NoCodeException:
-                new_individual.set_scores(self.worst_value, "No code was extracted.")
+                new_individual.set_scores(
+                    self.worst_value, "No code was extracted.")
             except Exception as e:
                 new_individual.set_scores(
                     self.worst_value,
@@ -194,7 +195,8 @@ Provide the Python code, a one-line description with the main idea (without ente
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             population = list(
-                executor.map(lambda _: initialize_single(), range(self.n_parents))
+                executor.map(lambda _: initialize_single(),
+                             range(self.n_parents))
             )
 
         self.generation += 1
@@ -235,7 +237,8 @@ Provide the Python code, a one-line description with the main idea (without ente
         cs = None
         if self.HPO:
             cs = self.extract_configspace(message)
-        new_individual = Individual(code, name, desc, cs, self.generation, parent_id)
+        new_individual = Individual(
+            code, name, desc, cs, self.generation, parent_id)
 
         return new_individual
 
@@ -266,7 +269,8 @@ Provide the Python code, a one-line description with the main idea (without ente
             list: A list of dictionaries simulating a conversation with the language model for the next evolutionary step.
         """
         # Generate the current population summary
-        population_summary = "\n".join([ind.get_summary() for ind in self.population])
+        population_summary = "\n".join(
+            [ind.get_summary() for ind in self.population])
         solution = individual.solution
         description = individual.description
         feedback = individual.feedback
@@ -430,7 +434,8 @@ With code:
             evolved_individual = individual.copy()
 
             try:
-                evolved_individual = self.llm(new_prompt, evolved_individual.parent_id)
+                evolved_individual = self.llm(
+                    new_prompt, evolved_individual.parent_id)
                 evolved_individual = self.evaluate_fitness(evolved_individual)
             except NoCodeException:
                 evolved_individual.set_scores(
@@ -471,7 +476,8 @@ With code:
                 try:
                     for future in concurrent.futures.as_completed(
                         future_to_offspring,
-                        timeout=self.eval_timeout * (max_workers / max_workers),
+                        timeout=self.eval_timeout *
+                            (max_workers / max_workers),
                     ):
                         try:
                             result = future.result(
@@ -484,7 +490,7 @@ With code:
                             )
                 except concurrent.futures.TimeoutError:
                     self.textlog.warning(
-                        "Timeout occurred for the as_completed event, pop count:" + 
+                        "Timeout occurred for the as_completed event, pop count:" +
                         str(len(new_population))
                     )
                     executor.shutdown(False)  # stop tasks that took too long
