@@ -174,3 +174,4 @@ benchmarks/user_tsp_gls/tsplib/
 # snellius server sbatch jobs output
 nohup.out
 sbatch_jobs/
+exp-*
