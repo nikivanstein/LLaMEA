@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH -J hyin_test
+#SBATCH -J LLaMEA
 #SBATCH -p gpu_h100
-#SBATCH --cpus-per-task=18
-#SBATCH --gpus=4
+#SBATCH --cpus-per-task=16
+#SBATCH --gpus=1
 #SBATCH --time=120:00:00
 #SBATCH --output=./sbatch_jobs/%j.out
 #SBATCH --error=./sbatch_jobs/%j.err
 
 source env/bin/activate
-huggingface-cli login --token $huggingface_token --add-to-git-credential
-python mutation_experiment.py
+huggingface-cli login --token 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 --add-to-git-credential
+python mutation_exp.py

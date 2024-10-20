@@ -7,35 +7,40 @@ from llamea import LLaMEA
 
 # Execution code starts here
 api_key = None
-ai_model = "Meta-Llama-3.1-8B-Instruct"
-experiment_name ="mutation_test"
+ai_model = "CodeLlama-34b-Instruct-hf"
+experiment_name = "disecret_power_law_beta_1.5"
+# Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
+# Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
+# CodeLlama-7b-Instruct-hf, CodeLlama-13b-Instruct-hf,
+# CodeLlama-34b-Instruct-hf, CodeLlama-70b-Instruct-hf,
 
 
-def evaluateBBOB(solution, explogger = None, details=False):
+def evaluateBBOB(solution, explogger=None, details=False):
     auc_mean = 0
     auc_std = 0
     detailed_aucs = [0, 0, 0, 0, 0]
     code = solution.solution
     algorithm_name = solution.name
     exec(code, globals())
-    
+
     error = ""
-    
+
     aucs = []
     detail_aucs = []
     algorithm = None
     for dim in [5]:
         budget = 2000 * dim
         l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
-        for fid in np.arange(1,25):
-            for iid in [1,2,3]: #, 4, 5]
+        for fid in np.arange(1, 25):
+            for iid in [1, 2, 3]:  # , 4, 5]
                 problem = get_problem(fid, iid, dim)
                 problem.attach_logger(l2)
 
                 for rep in range(3):
                     np.random.seed(rep)
                     try:
-                        algorithm = globals()[algorithm_name](budget=budget, dim=dim)
+                        algorithm = globals()[algorithm_name](
+                            budget=budget, dim=dim)
                         algorithm(problem)
                     except OverBudgetException:
                         pass
@@ -66,7 +71,7 @@ def evaluateBBOB(solution, explogger = None, details=False):
 
     i = 0
     while os.path.exists(f"currentexp/aucs-{algorithm_name}-{i}.npy"):
-        i+=1
+        i += 1
     np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
 
     feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
@@ -93,6 +98,7 @@ Give an excellent and novel heuristic algorithm to solve this task and also give
 """
 
 for experiment_i in range(5):
-    #A 1+1 strategy
-    es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt, experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=1000)
+    # A 1+1 strategy
+    es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt,
+                experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=100)
     print(es.run())
