@@ -30,11 +30,11 @@ budget = 100
 # GPT 4
 exp_dirs = [
     [
-        "exp-CodeLlama-7b/exp-10-16_135104-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_140245-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_141423-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_142559-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_143735-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5"
+        "exp-Llama-3.2-1B/exp-10-16_151247-LLaMEA-Llama-3.2-1B-Instruct-disecret_power_law_beta_1.5",
+        "exp-Llama-3.2-1B/exp-10-16_154040-LLaMEA-Llama-3.2-1B-Instruct-disecret_power_law_beta_1.5",
+        "exp-Llama-3.2-1B/exp-10-16_155718-LLaMEA-Llama-3.2-1B-Instruct-disecret_power_law_beta_1.5",
+        "exp-Llama-3.2-1B/exp-10-18_135139-LLaMEA-Llama-3.2-1B-Instruct-disecret_power_law_beta_1.5",
+        "exp-Llama-3.2-1B/exp-10-18_140953-LLaMEA-Llama-3.2-1B-Instruct-disecret_power_law_beta_1.5"
     ],
 ]
 
@@ -44,7 +44,7 @@ colors = ['b', 'r', 'g',
 linestyles = ['solid', 'solid', 'solid',
               # 'solid',
               'dotted', 'dotted', 'dotted', 'dashed', 'dashed', 'dashed']
-labels = ["CodeLlama-7B"]
+labels = ["1+1 Llama-3.2-1B"]
 for i in range(len(exp_dirs)):
     exp_dir = exp_dirs[i]
     color = colors[i]
