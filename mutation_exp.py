@@ -15,7 +15,7 @@ else:
 torch.cuda.empty_cache()
 # Execution code starts here
 api_key = None
-ai_model = "Meta-Llama-3.1-70B-Instruct"
+ai_model = "Meta-Llama-3.1-8B-Instruct"
 experiment_name = "disecret_power_law_beta_1.5"
 # Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
 # Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
@@ -105,7 +105,7 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
 """
 
-for experiment_i in range(1):
+for experiment_i in range(5):
     # A 1+1 strategy
     es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt,
                 experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=100)
