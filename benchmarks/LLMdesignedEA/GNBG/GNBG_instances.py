@@ -62,6 +62,7 @@ class GNBG:
         self.FE = 0
         self.AcceptanceReachPoint = np.inf
         self.BestFoundResult = np.inf
+        self.BestFoundPosition = None
 
     def fitness(self, X):
         if len(X.shape)<2:
@@ -88,6 +89,7 @@ class GNBG:
             self.FEhistory = np.append(self.FEhistory, result[jj])
             if self.BestFoundResult > result[jj]:
                 self.BestFoundResult = result[jj]
+                self.BestFoundPosition = x
             if abs(self.FEhistory[self.FE-1] - self.OptimumValue) < self.AcceptanceThreshold and np.isinf(self.AcceptanceReachPoint):
                 self.AcceptanceReachPoint = self.FE
         return result
