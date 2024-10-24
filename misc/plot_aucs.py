@@ -30,11 +30,11 @@ budget = 100
 # GPT 4
 exp_dirs = [
     [
-        "exp-CodeLlama-7b/exp-10-16_135104-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_140245-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_141423-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_142559-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5",
-        "exp-CodeLlama-7b/exp-10-16_143735-LLaMEA-CodeLlama-7b-Instruct-hf-disecret_power_law_beta_1.5"
+        "exp-10-15_124945-LLaMEA-Meta-Llama-3.1-70B-Instruct-disecret_power_law_beta_1.5",
+        "exp-10-15_124945-LLaMEA-Meta-Llama-3.1-70B-Instruct-disecret_power_law_beta_1.5",
+        "exp-10-15_124945-LLaMEA-Meta-Llama-3.1-70B-Instruct-disecret_power_law_beta_1.5",
+        "exp-10-15_124945-LLaMEA-Meta-Llama-3.1-70B-Instruct-disecret_power_law_beta_1.5",
+        "exp-10-15_124945-LLaMEA-Meta-Llama-3.1-70B-Instruct-disecret_power_law_beta_1.5"
     ],
 ]
 
@@ -157,6 +157,7 @@ for i in range(len(exp_dirs)):  # len(exp_dirs)
                         break
                 if not found:
                     ratios[j].append(0)
+        print(ratios)
         ratios = np.array(ratios)
         mean_ratios = np.mean(ratios, axis=0)
         # std_aucs = np.array(std_aucs)

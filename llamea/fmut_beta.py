@@ -20,5 +20,8 @@ def discrete_power_law_distribution(n, beta):
     half_n = int(n/2)
     elements = [alpha for alpha in range(1, half_n+1)]
     probabilities = [discrete_power_law(n, alpha, beta) for alpha in elements]
-    sample = np.random.choice(elements, p=probabilities)
-    return sample
+    if elements == []:
+        return 0.05
+    else:
+        sample = np.random.choice(elements, p=probabilities)
+        return sample / n

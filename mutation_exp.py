@@ -4,10 +4,18 @@ from ioh import get_problem, logger
 import re
 from misc import aoc_logger, correct_aoc, OverBudgetException
 from llamea import LLaMEA
+import torch
 
+if torch.cuda.is_available():
+    print(f"CUDA is available. PyTorch is using GPU: {torch.cuda.get_device_name(0)}")
+    print(f"GPU device count: {torch.cuda.device_count()}")
+    print(f"Current device index: {torch.cuda.current_device()}")
+else:
+    print("CUDA is not available. Using CPU.")
+torch.cuda.empty_cache()
 # Execution code starts here
 api_key = None
-ai_model = "CodeLlama-34b-Instruct-hf"
+ai_model = "Meta-Llama-3.1-70B-Instruct"
 experiment_name = "disecret_power_law_beta_1.5"
 # Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
 # Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
@@ -97,7 +105,7 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
 """
 
-for experiment_i in range(5):
+for experiment_i in range(1):
     # A 1+1 strategy
     es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt,
                 experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=100)

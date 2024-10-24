@@ -115,12 +115,19 @@ Give an excellent and novel heuristic algorithm to solve this task.
         self.output_format_prompt = """
 Provide the Python code and a one-line description with the main idea (without enters). Give the response in the format:
 # Description: <short-description>
-# Code: <code>"""
+# Code: 
+# ```python
+# <code>
+# ```
+# """
         if HPO:
             self.output_format_prompt = """
 Provide the Python code, a one-line description with the main idea (without enters) and the SMAC3 Configuration space to optimize the code (in Python dictionary format). Give the response in the format:
 # Description: <short-description>
-# Code: <code>
+# Code: 
+# ```python
+# <code>
+# ```
 # Space: <configuration_space>"""
         self.mutation_prompts = mutation_prompts
         # if mutation_prompts == None:
