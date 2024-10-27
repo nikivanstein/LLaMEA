@@ -8,5 +8,5 @@
 #SBATCH --error=./sbatch_jobs/%j.err
 
 source venv/bin/activate
-huggingface-cli login --token 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 --add-to-git-credential
+huggingface-cli login --token <token> --add-to-git-credential
 python mutation_exp.py

@@ -284,8 +284,8 @@ Provide the Python code, a one-line description with the main idea (without ente
         # TODO make a random selection between multiple feedback prompts (mutations)
         num_lines = len(solution.split("\n"))
         print(f"number of lines: {num_lines}")
-        prob = discrete_power_law_distribution(num_lines, 1.5)
-        # prob = 0.05
+        # prob = discrete_power_law_distribution(num_lines, 1.5)
+        prob = 0.25
         mutation_operator = f"You must follow the probability {prob} to change the individual lines of the selected solution to refine its strategy."
         # mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
