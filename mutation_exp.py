@@ -6,7 +6,7 @@ from misc import aoc_logger, correct_aoc, OverBudgetException
 from llamea import LLaMEA
 import torch
 
-if torch.cuda.is_available():
+if torch.cuda.is_available():                        
     print(f"CUDA is available. PyTorch is using GPU: {torch.cuda.get_device_name(0)}")
     print(f"GPU device count: {torch.cuda.device_count()}")
     print(f"Current device index: {torch.cuda.current_device()}")
@@ -15,8 +15,8 @@ else:
 torch.cuda.empty_cache()
 # Execution code starts here
 api_key = None
-ai_model = "Llama-3.2-3B-Instruct"
-experiment_name = "25"
+ai_model = "Llama-3.2-1B-Instruct"
+experiment_name = "30"
 # Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
 # Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
 # CodeLlama-7b-Instruct-hf, CodeLlama-13b-Instruct-hf,
@@ -105,7 +105,7 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
 """
 
-for experiment_i in range(1):
+for experiment_i in range(5):
     # A 1+1 strategy
     es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt,
                 experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=100)
