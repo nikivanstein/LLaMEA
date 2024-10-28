@@ -16,7 +16,7 @@ torch.cuda.empty_cache()
 # Execution code starts here
 api_key = None
 ai_model = "Llama-3.2-1B-Instruct"
-experiment_name = "30"
+experiment_name = "40"
 # Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
 # Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
 # CodeLlama-7b-Instruct-hf, CodeLlama-13b-Instruct-hf,
