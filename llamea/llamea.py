@@ -285,8 +285,11 @@ Provide the Python code, a one-line description with the main idea (without ente
         num_lines = len(solution.split("\n"))
         print(f"number of lines: {num_lines}")
         # prob = discrete_power_law_distribution(num_lines, 1.5)
-        prob = 0.35
-        mutation_operator = f"You must follow the probability {prob} to change the individual lines of the selected solution to refine its strategy."
+        prob = 0.4
+        mutation_operator = f"""
+Now, refine the strategy of the selected solution to improve it. Make sure you 
+only change {prob*100}% of the code.
+"""
         # mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
 

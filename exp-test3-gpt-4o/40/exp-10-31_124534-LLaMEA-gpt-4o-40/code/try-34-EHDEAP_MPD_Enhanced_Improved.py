@@ -1,0 +1,89 @@
+import numpy as np
+
+class EHDEAP_MPD_Enhanced_Improved:
+    def __init__(self, budget, dim):
+        self.budget = budget
+        self.dim = dim
+        self.subpopulations = 5
+        self.subpop_size = (10 * dim) // self.subpopulations
+        self.bounds = (-5.0, 5.0)
+        self.mutation_factor = 0.8
+        self.crossover_prob = 0.9
+        self.evaluations = 0
+        self.elite_fraction = 0.2  # Fraction of elite solutions
+
+    def __call__(self, func):
+        populations = [self._initialize_population() for _ in range(self.subpopulations)]
+        fitness = [np.array([func(ind) for ind in pop]) for pop in populations]
+        self.evaluations += self.subpop_size * self.subpopulations
+
+        while self.evaluations < self.budget:
+            for s, population in enumerate(populations):
+                if self.evaluations >= self.budget:
+                    break
+                for i in range(self.subpop_size):
+                    if self.evaluations >= self.budget:
+                        break
+
+                    # Adaptive Differential Elitism
+                    self.elite_fraction = 0.1 + 0.9 * (self.evaluations / self.budget)
+                    elite_indices = np.argsort(fitness[s])[:int(self.elite_fraction * self.subpop_size)]
+                    elite = population[np.random.choice(elite_indices)]
+                    indices = list(range(self.subpop_size))
+                    indices.remove(i)
+                    a, b, c = np.random.choice(indices, 3, replace=False)
+                    mutant = self._mutate(population[a], elite, population[c])
+
+                    # Chaotic Crossover
+                    crossover_mask = self._chaotic_crossover(self.dim)
+                    trial = np.where(crossover_mask, mutant, population[i])
+
+                    # Chaotic Local Search
+                    refined_trial = self._chaotic_local_search(trial, func)
+
+                    # Selection
+                    trial_fitness = func(refined_trial)
+                    self.evaluations += 1
+
+                    if trial_fitness < fitness[s][i]:
+                        population[i] = refined_trial
+                        fitness[s][i] = trial_fitness
+
+                # Strategic Subpopulation Merging
+                if (self.evaluations / self.budget) > 0.5 and (s == 0):
+                    self._merge_subpopulations(populations, fitness)
+
+        best_idx = np.argmin([f.min() for f in fitness])
+        best_subpop = populations[best_idx]
+        best_fit_idx = np.argmin(fitness[best_idx])
+        return best_subpop[best_fit_idx]
+
+    def _initialize_population(self):
+        return np.random.uniform(self.bounds[0], self.bounds[1], (self.subpop_size, self.dim))
+
+    def _mutate(self, a, b, c):
+        mutant = np.clip(a + self.mutation_factor * (b - c), self.bounds[0], self.bounds[1])
+        return mutant
+
+    def _chaotic_crossover(self, dim):
+        chaotic_seq = np.sin(np.arange(dim) + 1)  # Simple chaotic sequence
+        crossover_mask = (chaotic_seq > 0).astype(bool)
+        return crossover_mask
+
+    def _chaotic_local_search(self, trial, func):
+        gamma = 0.005 * np.sin(self.evaluations)  # Small chaotic perturbation
+        step_size = gamma * np.random.normal(0, 1, self.dim)
+        local_best = np.clip(trial + step_size, self.bounds[0], self.bounds[1])
+        local_best_fitness = func(local_best)
+        self.evaluations += 1
+        if local_best_fitness < func(trial):
+            return local_best
+        return trial
+    
+    def _merge_subpopulations(self, populations, fitness):
+        subpop_fitness = np.array([f.min() for f in fitness])
+        sorted_indices = np.argsort(subpop_fitness)
+        half = len(sorted_indices) // 2
+        for i in range(half, len(sorted_indices)):
+            populations[sorted_indices[i]] = populations[sorted_indices[i-half]]
+            fitness[sorted_indices[i]] = fitness[sorted_indices[i-half]]
