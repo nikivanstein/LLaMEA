@@ -74,8 +74,9 @@ def box_plot_mutation_code_diff(exp_dirs, labels, title):
         if int(mutation_label) not in df["Mutation"].values:
             df = pd.concat([df, pd.DataFrame(
                 [[int(mutation_label), 0]], columns=["Mutation", "Code Difference"])])
-    sns.violinplot(x="Mutation", y="Code Difference", data=df, inner="box",
+    sns.violinplot(x="Mutation", y="Code Difference", data=df, inner=None,
                    palette="muted", hue="Mutation", legend=False)
+    sns.stripplot(x="Mutation", y="Code Difference", data=df, jitter=True,)
     plt.xticks(rotation=45)
     plt.xlabel("Mutation")
     plt.ylabel("Code Difference")
