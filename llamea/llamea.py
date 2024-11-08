@@ -287,8 +287,12 @@ Provide the Python code, a one-line description with the main idea (without ente
         # prob = discrete_power_law_distribution(num_lines, 1.5)
         prob = 0.4
         mutation_operator = f"""
-Now, refine the strategy of the selected solution to improve it. Make sure you 
-only change {prob*100}% of the code.
+I need you to modify the code to create a performance-improved variant. Please 
+make sure the new code is exactly {prob*100}% different from the original. Focus
+on enhancing efficiency, like reducing the complexity of loops, streamlining 
+calculations, or removing redundant operations. Please use comments to 
+highlight any significant changes you make and confirm that the difference is 
+exactly {prob*100}%.
 """
         # mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
