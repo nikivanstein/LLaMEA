@@ -185,6 +185,8 @@ def ratio_mutation_plot(df, llm, mutation, title):
 
 
 def aggregate_plot(df):
+    cud = ["#e69f00", "#56b4e9", "#009e73", "#f0e442",
+           "#0072b2", "#d55e00", "#cc79a7", "#000000"]
     df["aggregate_label"] = df["prompt"] + \
         "_" + df["Mutation"].astype(str) + "%"
     df["prompt_number"] = df["prompt"].str[6:].astype(int)
@@ -192,17 +194,23 @@ def aggregate_plot(df):
     df_sorted = df.sort_values(
         by=["Mutation", "prompt_number"], ascending=[True, True])
     for model in ["gpt-3.5-turbo", "gpt-4o"]:
+        xticks = [i for i in range(8)]
+        for i in range(4):
+            xticks += [j+9*(i+1) for j in range(8)]
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 9), sharex=True)
         df_temp = df_sorted[df_sorted["model"] == model]
         # plt.figure(figsize=(12, 4))
         sns.violinplot(x="aggregate_label", y="Code Difference", data=df_temp,
-                       cut=0, inner="box", palette="muted", hue="prompt",
+                       cut=0, inner="box", palette=cud, hue="prompt",
                        inner_kws=dict(box_width=3), legend=True, ax=ax1)
         positions = range(len(df_temp["aggregate_label"].unique()))
         for y in [0.02, 0.05, 0.1, 0.2, 0.4]:
             i = [0.02, 0.05, 0.1, 0.2, 0.4].index(y)
             ax1.hlines(y=y, xmin=positions[8*i]-0.2, xmax=positions[8*i+7]+0.2,
-                       color='red', linestyles="dashed", linewidth=1)
+                       color='red', linestyles="dashed", linewidth=2)
+            if y != 0.4:
+                ax1.axvline(x=positions[8*i+7]+0.5, color='grey',
+                            linestyle="dotted", linewidth=2)
         ax1.plot(0, 0, color='red', linestyle="dashed",
                  linewidth=1, label="requested mutation rate")
         ax1.set_ylabel("code difference")
@@ -212,11 +220,15 @@ def aggregate_plot(df):
         ax1.yaxis.set_major_formatter(PercentFormatter(1, decimals=1))
         # ax1.set_title(f"Code Difference Distribution of Different Prompts and Mutation Rates when Using {model}")
         ax1.legend(ncol=3)
-        
+
         sns.stripplot(x="aggregate_label", y="ratio", data=df_temp, jitter=True,
-                      palette="muted", hue="prompt", legend=True, ax=ax2)
-        ax2.axhline(y=1, color='green', linestyle='-.',
+                      palette=cud, hue="prompt", legend=True, ax=ax2)
+        ax2.axhline(y=1, color='green', linestyle='-.', linewidth=2,
                     label="delivered code difference = requested mutation rate")
+        for y in [0.02, 0.05, 0.1, 0.2]:
+            i = [0.02, 0.05, 0.1, 0.2].index(y)
+            ax2.axvline(x=positions[8*i+7]+0.5, color='grey',
+                        linestyle="dotted", linewidth=2)
         ax2.set_yscale("log")
         ax2.set_ylabel("ratio")
         ax2.set_xlabel("")
@@ -230,6 +242,40 @@ def aggregate_plot(df):
         plt.xticks(rotation=90)
         plt.tight_layout()
         plt.savefig(f"results/code_diff/aggregate_diff_{model}.png")
+        plt.clf()
+
+
+def convergence_plot():
+    cmap = plt.get_cmap('viridis')
+    plt.figure(figsize=(8, 6))
+    x = np.arange(budegt)
+    cud = ["#e69f00", "#56b4e9", "#009e73", "#f0e442",
+           "#0072b2", "#d55e00", "#cc79a7", "#000000"]
+    colors = [cud[0], cud[1], cud[2], cud[0], cud[1], cud[2]]
+    line_styles = ['solid', 'dashed', 'dashdot', 'solid', 'dashed', 'dashdot']
+    labels = [
+        "1+1 GPT-4o-ES with prompt5", "1+1 GPT-4o-ES with prompt9",
+        "1+1 GPT-4o-ES baseline", "1+1 GPT-3.5-ES with prompt2",
+        "1+1 GPT-3.5-ES with prompt7", "1+1 GPT-3.5-ES baseline",
+    ]
+    i = 0
+    for model in ["gpt-4o", "gpt-3.5-turbo"]:
+        for label in ["exp1", "exp2", "baseline"]:
+            mean_aucs = np.loadtxt(f"results/{model}-{label}-aucs.txt")
+            std_aucs = np.loadtxt(f"results/{model}-{label}-std.txt")
+            if label != "baseline":
+                std_aucs = std_aucs**0.5
+            plt.plot(x, mean_aucs, color=colors[i], linewidth=2,
+                     linestyle=line_styles[i], label=labels[i])
+            plt.fill_between(x, mean_aucs - std_aucs, mean_aucs +
+                             std_aucs, color=colors[i], alpha=0.05)
+            plt.xlim(0, 100)
+            i += 1
+        plt.xlabel("Iterations")
+        plt.ylabel("mean AOCC")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f"results/convergence_{model}.png")
         plt.clf()
 
 
@@ -268,6 +314,8 @@ if __name__ == "__main__":
     save_MSE_table(df.copy())
     print("Plotting aggregation...")
     aggregate_plot(df.copy())
+    print("Plotting convergence...")
+    convergence_plot()
     # for llm in ["gpt-3.5-turbo", "gpt-4o"]:
     #     for prompt in [f"prompt{i}" for i in range(1, 12)]:
     #         df_temp = df[(df["model"] == llm) & (df["prompt"] == prompt)]

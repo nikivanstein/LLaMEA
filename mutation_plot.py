@@ -62,6 +62,8 @@ def plot_aucs(exp_dirs, colors, labels, linestyles, title, aocc=False):
                 std_aucs += [np.std(current_best)**2]
         mean_aucs = np.array(mean_aucs)
         std_aucs = np.array(std_aucs)
+        np.savetxt(f"results/{title}-{label}-aucs.txt", mean_aucs)
+        np.savetxt(f"results/{title}-{label}-std.txt", std_aucs)
         x = np.arange(budget)
         plt.plot(x, mean_aucs, color=color, linestyle=ls, label=label)
         plt.fill_between(x, mean_aucs - std_aucs, mean_aucs +
