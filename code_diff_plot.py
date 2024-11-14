@@ -67,7 +67,7 @@ def build_data(exp_dirs, prompt, llm, labels):
             code_diff = calculate_code_diff(codes, code_parents)
             code_diff_values = list(code_diff.values())
             for code_diff_value in code_diff_values:
-                if code_diff_value <= 0 or code_diff_value > 0.8:
+                if code_diff_value <= 0.001:
                     continue
                 data += [[llm, prompt, int(mutation_label), code_diff_value]]
     return data
@@ -94,7 +94,7 @@ def ratio_plot(df, prompt, llm, title):
                   palette="muted", hue="Mutation", legend=False)
     plt.axhline(y=1, color='r', linestyle='--',
                 label="delivered code difference = requested mutation rate")
-    # plt.yscale("log")
+    plt.yscale("log")
     plt.xticks(ticks=list(range(5)), labels=["2%", "5%", "10%", "20%", "40%"])
     plt.xlabel("requested mutation rate")
     plt.ylabel("ratio")
@@ -107,15 +107,17 @@ def ratio_plot(df, prompt, llm, title):
 
 
 def MSE(df, llm, prompt):
-    MSE = [llm, prompt]
+    weights = [0.7219028, 0.18262857, 0.06456895, 0.02282857, 0.00807112]
+    MSE_value = [llm, prompt]
     for mutation in [2, 5, 10, 20, 40]:
         df_temp = df[df["Mutation"] == mutation]
-        if df_temp.values.all() == 0:
-            MSE += [np.nan]
+        if df_temp["Code Difference"].values.all() == 0:
+            MSE_value += [np.nan]
         else:
-            MSE += [((df_temp["Code Difference"]*100/mutation -
-                    df_temp["Mutation"]/mutation)**2).mean()]
-    return MSE
+            MSE_value += [((np.log10(df_temp["Code Difference"]
+                           * 100/mutation))**2).mean()]
+    MSE_value += [np.average(MSE_value[2:], weights=weights)]
+    return MSE_value
 
 
 def save_MSE_table(df):
@@ -125,10 +127,26 @@ def save_MSE_table(df):
             df_temp = df[(df["model"] == llm) & (df["prompt"] == prompt)]
             if df_temp.empty:
                 continue
-            MSE_table += [MSE(df_temp)]
-    MSE_table = pd.DataFrame(
-        MSE_table, columns=["model", "prompt", "2%", "5%", "10", "20", "40"])
+            MSE_table += [MSE(df_temp, llm, prompt)]
+    MSE_table = pd.DataFrame(MSE_table, columns=["model", "prompt", "2%", "5%",
+                                                 "10%", "20%", "40%", "score"])
     MSE_table.to_csv("results/code_diff/MSE_table.csv")
+    df_gpt_3_5 = MSE_table[MSE_table["model"] == "gpt-3.5-turbo"]
+    df_gpt_4 = MSE_table[MSE_table["model"] == "gpt-4o"]
+    plt.figure(figsize=(4.2, 4))
+    sns.heatmap(df_gpt_3_5.iloc[:, 2:], annot=True, fmt=".2f", square=True,
+                cmap="gist_yarg", yticklabels=df_gpt_3_5["prompt"],
+                xticklabels=["2%", "5%", "10%", "20%", "40%", "score"])
+    plt.tight_layout()
+    plt.savefig("results/code_diff/MSE_gpt-3.5-turbo.png")
+    plt.clf()
+    plt.figure(figsize=(4.2, 4))
+    sns.heatmap(df_gpt_4.iloc[:, 2:], annot=True, fmt=".2f", square=True,
+                cmap="gist_yarg", yticklabels=df_gpt_4["prompt"],
+                xticklabels=["2%", "5%", "10%", "20%", "40%", "score"])
+    plt.tight_layout()
+    plt.savefig("results/code_diff/MSE_gpt-4o.png")
+    plt.clf()
 
 
 def violin_mutation_plot(df, llm, mutation, title):
@@ -155,7 +173,7 @@ def ratio_mutation_plot(df, llm, mutation, title):
                   palette="muted", hue="prompt", legend=False)
     plt.axhline(y=1, color='r', linestyle='--',
                 label="delivered code difference = requested mutation rate")
-    # plt.yscale("log")
+    plt.yscale("log")
     plt.xlabel("different prompts")
     plt.ylabel("ratio")
     plt.title(
@@ -164,6 +182,55 @@ def ratio_mutation_plot(df, llm, mutation, title):
     plt.legend()
     plt.savefig(title)
     plt.cla()
+
+
+def aggregate_plot(df):
+    df["aggregate_label"] = df["prompt"] + \
+        "_" + df["Mutation"].astype(str) + "%"
+    df["prompt_number"] = df["prompt"].str[6:].astype(int)
+    df["ratio"] = (df["Code Difference"] * 100) / df["Mutation"]
+    df_sorted = df.sort_values(
+        by=["Mutation", "prompt_number"], ascending=[True, True])
+    for model in ["gpt-3.5-turbo", "gpt-4o"]:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 9), sharex=True)
+        df_temp = df_sorted[df_sorted["model"] == model]
+        # plt.figure(figsize=(12, 4))
+        sns.violinplot(x="aggregate_label", y="Code Difference", data=df_temp,
+                       cut=0, inner="box", palette="muted", hue="prompt",
+                       inner_kws=dict(box_width=3), legend=True, ax=ax1)
+        positions = range(len(df_temp["aggregate_label"].unique()))
+        for y in [0.02, 0.05, 0.1, 0.2, 0.4]:
+            i = [0.02, 0.05, 0.1, 0.2, 0.4].index(y)
+            ax1.hlines(y=y, xmin=positions[8*i]-0.2, xmax=positions[8*i+7]+0.2,
+                       color='red', linestyles="dashed", linewidth=1)
+        ax1.plot(0, 0, color='red', linestyle="dashed",
+                 linewidth=1, label="requested mutation rate")
+        ax1.set_ylabel("code difference")
+        ax1.set_xlabel("")
+        ax1.xaxis.tick_bottom()
+        ax1.xaxis.set_label_position('bottom')
+        ax1.yaxis.set_major_formatter(PercentFormatter(1, decimals=1))
+        # ax1.set_title(f"Code Difference Distribution of Different Prompts and Mutation Rates when Using {model}")
+        ax1.legend(ncol=3)
+        
+        sns.stripplot(x="aggregate_label", y="ratio", data=df_temp, jitter=True,
+                      palette="muted", hue="prompt", legend=True, ax=ax2)
+        ax2.axhline(y=1, color='green', linestyle='-.',
+                    label="delivered code difference = requested mutation rate")
+        ax2.set_yscale("log")
+        ax2.set_ylabel("ratio")
+        ax2.set_xlabel("")
+        ax2.xaxis.tick_top()
+        ax2.xaxis.set_label_position('top')
+        # ax2.set_title(
+        #     f"Ratio of Delivered Code Difference to Requested Mutation Rate of Different Prompts and Mutation Rates when Using {model}", pad=-30)
+        ax2.legend(ncol=3, loc="upper right")
+        # ax1.title(
+        #     f"Code Difference Distribution of Different Prompts when Using {model}")
+        plt.xticks(rotation=90)
+        plt.tight_layout()
+        plt.savefig(f"results/code_diff/aggregate_diff_{model}.png")
+        plt.clf()
 
 
 if __name__ == "__main__":
@@ -175,50 +242,49 @@ if __name__ == "__main__":
               for i in range(1, 12)]
     mutations = ["beta1.5", "2"] + [str(i*5) for i in range(1, 11)]
     df_values = []
-    for model in models:
-        prompt = model.split("_")[0]
-        llm = model.split("_")[1]
-        exp_name = f"{prompt}-{llm}"
-        exp_dirs = []
-        labels = []
-        if not os.path.exists(f"exp-{exp_name}"):
-            continue
-        for mutation in mutations:
-            if not os.path.exists(f"exp-{exp_name}/{mutation}"):
-                continue
-            folders = os.listdir(
-                f"exp-{exp_name}/{mutation}")
-            exp_dirs += [
-                [f"exp-{exp_name}/{mutation}/{f}" for f in folders if f.startswith("exp")]]
-            labels += [f"{mutation}"]
-        df_values += build_data(exp_dirs, prompt, llm, labels)
-    df = pd.DataFrame(df_values, columns=[
-                      "model", "prompt", "Mutation", "Code Difference"])
-    MSE_table = []
-    for llm in ["gpt-3.5-turbo", "gpt-4o"]:
-        for prompt in [f"prompt{i}" for i in range(1, 12)]:
-            df_temp = df[(df["model"] == llm) & (df["prompt"] == prompt)]
-            if df_temp.empty:
-                continue
-            title1 = f"results/code_diff/{prompt}_{llm}_code-diff.png"
-            title2 = f"results/code_diff/{prompt}_{llm}_ratio.png"
-            violin_plot(df_temp, prompt, llm, title1)
-            ratio_plot(df_temp, prompt, llm, title2)
-            MSE_table += [MSE(df_temp)]
-    for llm in ["gpt-3.5-turbo", "gpt-4o"]:
-        for mutation in [2, 5, 10, 20, 40]:
-            df_temp = df[(df["model"] == llm) & (df["Mutation"] == mutation)]
-            if df_temp.empty:
-                continue
-            title1 = f"results/code_diff/{llm}_{mutation}_code-diff.png"
-            title2 = f"results/code_diff/{llm}_{mutation}_ratio.png"
-            violin_mutation_plot(df_temp, llm, mutation, title1)
-            ratio_mutation_plot(df_temp, llm, mutation, title2)
-    save_MSE_table(df)
-    # return df
-    #     title1 = f"results/code_diff/{model}_code-diff.png"
-    #     title2 = f"results/code_diff/{model}_ratio.png"
-    #     violin_plot(df, prompt, llm, title1)
-    #     ratio_plot(df, prompt, llm, title2)
-    #     MSE_table += [MSE(df)]
-    # # save_MSE_table(MSE_table)
+    print("Building data...")
+    # for model in models:
+    #     prompt = model.split("_")[0]
+    #     llm = model.split("_")[1]
+    #     exp_name = f"{prompt}-{llm}"
+    #     exp_dirs = []
+    #     labels = []
+    #     if not os.path.exists(f"exp-{exp_name}"):
+    #         continue
+    #     for mutation in mutations:
+    #         if not os.path.exists(f"exp-{exp_name}/{mutation}"):
+    #             continue
+    #         folders = os.listdir(
+    #             f"exp-{exp_name}/{mutation}")
+    #         exp_dirs += [
+    #             [f"exp-{exp_name}/{mutation}/{f}" for f in folders if f.startswith("exp")]]
+    #         labels += [f"{mutation}"]
+    #     df_values += build_data(exp_dirs, prompt, llm, labels)
+    # df = pd.DataFrame(df_values, columns=[
+    #                   "model", "prompt", "Mutation", "Code Difference"])
+    # df.to_csv("results/code_diff/code_diff.csv")
+    df = pd.read_csv("results/code_diff/code_diff.csv")
+    print("Saving MSE table...")
+    save_MSE_table(df.copy())
+    print("Plotting aggregation...")
+    aggregate_plot(df.copy())
+    # for llm in ["gpt-3.5-turbo", "gpt-4o"]:
+    #     for prompt in [f"prompt{i}" for i in range(1, 12)]:
+    #         df_temp = df[(df["model"] == llm) & (df["prompt"] == prompt)]
+    #         if df_temp.empty:
+    #             continue
+    #         title1 = f"results/code_diff/{prompt}_{llm}_code-diff.png"
+    #         title2 = f"results/code_diff/{prompt}_{llm}_ratio.png"
+    #         print(f"Plotting {prompt} with {llm}...")
+    #         violin_plot(df_temp, prompt, llm, title1)
+    #         ratio_plot(df_temp, prompt, llm, title2)
+    # for llm in ["gpt-3.5-turbo", "gpt-4o"]:
+    #     for mutation in [2, 5, 10, 20, 40]:
+    #         df_temp = df[(df["model"] == llm) & (df["Mutation"] == mutation)]
+    #         if df_temp.empty:
+    #             continue
+    #         title1 = f"results/code_diff/{llm}_{mutation}_code-diff.png"
+    #         title2 = f"results/code_diff/{llm}_{mutation}_ratio.png"
+    #         print(f"Plotting {mutation}% with {llm}...")
+    #         violin_mutation_plot(df_temp, llm, mutation, title1)
+    #         ratio_mutation_plot(df_temp, llm, mutation, title2)

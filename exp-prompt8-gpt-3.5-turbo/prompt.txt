@@ -1,5 +1,6 @@
-Create an improved variant of this optimization algorithm that has exactly 
-{prob*100}% difference in code. Focus on practical performance enhancements, 
-such as optimizing loops, restructuring inefficient parts, or removing redundant 
-steps. List each change with a brief explanation, and verify that the difference 
-meets the exact {prob*100}% target.
+Please enhance the convergence speed of the optimization algorithm given below 
+by modifying it. The modifications should introduce a code difference of 
+precisely {prob*100}% compared to the original code. Focus on optimizing the 
+algorithm's behavior rather than its implementation efficiency. You are free to 
+explore any area of the algorithm's logic, but ensure that the total code 
+difference remains exactly at {prob*100}% and is geared toward faster convergence.

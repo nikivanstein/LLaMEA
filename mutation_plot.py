@@ -53,13 +53,13 @@ def plot_aucs(exp_dirs, colors, labels, linestyles, title, aocc=False):
             if not aocc:
                 if len(m_aucs) > 0:
                     mean_aucs += [np.mean(m_aucs)]
-                    std_aucs += [np.std(m_aucs)]
+                    std_aucs += [np.std(m_aucs)**2]
                 else:
                     mean_aucs += [np.nan]
                     std_aucs += [np.nan]
             else:
                 mean_aucs += [np.mean(current_best)]
-                std_aucs += [np.std(current_best)]
+                std_aucs += [np.std(current_best)**2]
         mean_aucs = np.array(mean_aucs)
         std_aucs = np.array(std_aucs)
         x = np.arange(budget)
@@ -85,36 +85,31 @@ if __name__ == "__main__":
                   'dashed', 'dashed', 'dashed',
                   'dashdot', 'dashdot', 'dashdot']
 
-    models = ["gpt-3.5-turbo", "gpt-4o", "Llama-3.2-1B",
-              "Llama-3.2-3B", "Meta-Llama-3.1-8B", "Meta-Llama-3.1-70B"]
-    mutations = ["beta1.5"] + [str(5*i) for i in range(1, 11)]
+    models = ["gpt-3.5-turbo", "gpt-4o"]
+    mutations = [f"exp{i}" for i in range(1, 4)]
     for model in models:
         exp_dirs = []
         labels = []
         for mutation in mutations:
-            if model == "Meta-Llama-3.1-8B" and mutation != "beta1.5":
-                continue
-            if model == "Meta-Llama-3.1-70B" and mutation != "beta1.5":
-                continue
             folders = os.listdir(
-                f"/scratch/hyin/LLaMEA/exp-{model}/{mutation}")
+                f"/scratch/hyin/LLaMEA/exp-{model}-{mutation}")
             exp_dirs += [
-                [f"/scratch/hyin/LLaMEA/exp-{model}/{mutation}/{f}" for f in folders if f.startswith("exp")]]
+                [f"/scratch/hyin/LLaMEA/exp-{model}-{mutation}/{f}" for f in folders if f.startswith("exp")]]
             labels += [f"{mutation}"]
         plot_aucs(exp_dirs, colors, labels, linestyles, model)
         plot_aucs(exp_dirs, colors, labels, linestyles, model, aocc=True)
-    for mutation in mutations:
-        exp_dirs = []
-        labels = []
-        for model in models:
-            if model == "Meta-Llama-3.1-8B" and mutation != "beta1.5":
-                continue
-            if model == "Meta-Llama-3.1-70B" and mutation != "beta1.5":
-                continue
-            folders = os.listdir(
-                f"/scratch/hyin/LLaMEA/exp-{model}/{mutation}")
-            exp_dirs += [
-                [f"/scratch/hyin/LLaMEA/exp-{model}/{mutation}/{f}" for f in folders if f.startswith("exp")]]
-            labels += [f"{model}"]
-        plot_aucs(exp_dirs, colors, labels, linestyles, mutation)
-        plot_aucs(exp_dirs, colors, labels, linestyles, mutation, aocc=True)
+    # for mutation in mutations:
+    #     exp_dirs = []
+    #     labels = []
+    #     for model in models:
+    #         if model == "Meta-Llama-3.1-8B" and mutation != "beta1.5":
+    #             continue
+    #         if model == "Meta-Llama-3.1-70B" and mutation != "beta1.5":
+    #             continue
+    #         folders = os.listdir(
+    #             f"/scratch/hyin/LLaMEA/exp-{model}/{mutation}")
+    #         exp_dirs += [
+    #             [f"/scratch/hyin/LLaMEA/exp-{model}/{mutation}/{f}" for f in folders if f.startswith("exp")]]
+    #         labels += [f"{model}"]
+    #     plot_aucs(exp_dirs, colors, labels, linestyles, mutation)
+    #     plot_aucs(exp_dirs, colors, labels, linestyles, mutation, aocc=True)

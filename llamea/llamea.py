@@ -133,7 +133,7 @@ Provide the Python code, a one-line description with the main idea (without ente
         # if mutation_prompts == None:
         #     self.mutation_prompts = [
         #         "Refine the strategy of the selected solution to improve it.",  # small mutation
-        #         # "Generate a new algorithm that is different from the solutions you have tried before.", #new random solution
+        #         "Generate a new algorithm that is different from the solutions you have tried before.", #new random solution
         #     ]
         self.budget = budget
         self.n_parents = n_parents
@@ -284,15 +284,15 @@ Provide the Python code, a one-line description with the main idea (without ente
         # TODO make a random selection between multiple feedback prompts (mutations)
         num_lines = len(solution.split("\n"))
         print(f"number of lines: {num_lines}")
-        # prob = discrete_power_law_distribution(num_lines, 1.5)
-        prob = 0.4
+        prob = discrete_power_law_distribution(num_lines, 1.5)
+        # prob = 0.2
         mutation_operator = f"""
-I need you to modify the code to create a performance-improved variant. Please 
-make sure the new code is exactly {prob*100}% different from the original. Focus
-on enhancing efficiency, like reducing the complexity of loops, streamlining 
-calculations, or removing redundant operations. Please use comments to 
-highlight any significant changes you make and confirm that the difference is 
-exactly {prob*100}%.
+Modify the optimization algorithm code to improve its performance in terms of 
+convergence speed. The modification should result in a code difference of 
+exactly {(prob*100):.1f}%. Ensure that the changes are meaningful to enhance 
+optimization speed without focusing on code efficiency or readability 
+improvements. Explore any strategy within the algorithm to achieve this, 
+but keep the difference precisely at the specified percentage.
 """
         # mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
