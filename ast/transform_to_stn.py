@@ -12,9 +12,9 @@ for problem in ["BP", "TSP", "BBO"]:
     data = pd.read_csv(data_path)
 
     # Drop irrelevant columns
-    data = data.drop(columns=["Degrees", "Pagerank", "Betweenness Centrality", "Clustering Coefficients", "Depths"])
+    #data = data.drop(columns=["Degrees", "Pagerank", "Betweenness Centrality", "Clustering Coefficients", "Depths"])
     #Drop non-contributing columns
-    data = data.drop(columns=["Mean Clustering", "Max Clustering", "Min Depth", "Transitivity", "Clustering Variance", "Eigenvector Centrality"])
+    data = data.drop(columns=["Mean Clustering", "Max Clustering", "Min Depth", "Transitivity", "Clustering Variance"]) #"Eigenvector Centrality"
 
     data.replace([np.inf, -np.inf], np.nan, inplace=True)
 

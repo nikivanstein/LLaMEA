@@ -15,7 +15,7 @@ from sklearn.preprocessing import minmax_scale
 #import xgboost as xgb
 
 # Load the dataset without the "degrees" column
-for problem in ["BP", "TSP"]:
+for problem in ["BP", "TSP", "BBO"]:
     data_path = f'ast/graphstats_{problem}.csv'
     fig_folder = f'ast/img{problem}/'
     os.makedirs(fig_folder, exist_ok=True)
@@ -28,12 +28,21 @@ for problem in ["BP", "TSP"]:
     #data = data.drop(columns=["Betweenness Centrality"])
 
     # Replace NaN and infinite values with 0
+    
     data.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-    data["fitness"].fillna(-0.04, inplace=True)
-    data.loc[data["fitness"] < -0.04, 'fitness'] = -0.04
+    if problem == "BP":
+        data["fitness"].fillna(-0.04, inplace=True)
+        data.loc[data["fitness"] < -0.04, 'fitness'] = -0.04
+        data["fitness"] = 1 + (data["fitness"] * 20)
+    elif problem == "BBO":
+        data["fitness"].fillna(0, inplace=True)
+    else:
+        data["fitness"].fillna(-0.2, inplace=True)
+        data.loc[data["fitness"] < -0.2, 'fitness'] = -0.2
+        data["fitness"] = 1 + (data["fitness"] * 20)
 
-    data["fitness"] = 1 + (data["fitness"] * 20)
+    
 
     data["fitness"] = minmax_scale(data["fitness"])
 
@@ -47,7 +56,9 @@ for problem in ["BP", "TSP"]:
 
 
     # Separate metadata and features
-    metadata_cols = ['fitness', 'LLM', 'exp_dir', 'alg_id', 'parent_id', 'code_diff']
+    metadata_cols = ['fitness', 'LLM', 'exp_dir', 'alg_id', 'parent_id']
+    if 'code_diff' in data.columns:
+        metadata_cols.append('code_diff')
     features = data.drop(columns=metadata_cols)
     metadata = data[metadata_cols]
 
