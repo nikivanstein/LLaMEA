@@ -19,9 +19,6 @@ from .utils import NoCodeException, handle_timeout
 from .individual import Individual
 
 
-
-
-
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
 
@@ -484,8 +481,8 @@ With code:
                             )
                 except concurrent.futures.TimeoutError:
                     self.textlog.warning(
-                        "Timeout occurred for the as_completed event, pop count:" + 
-                        str(len(new_population))
+                        "Timeout occurred for the as_completed event, pop count:"
+                        + str(len(new_population))
                     )
                     executor.shutdown(False)  # stop tasks that took too long
 
