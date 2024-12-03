@@ -153,7 +153,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
             exp_data_sorted = subset.sort_values(by="alg_id")
             plt.plot(exp_data_sorted["alg_id"], exp_data_sorted[feature])
             plt.title(f"Evolution of {feature} over Optimization Runs - {llm}")
-            plt.xlabel("Algorithm ID")
+            plt.xlabel("Evaluation")
             plt.ylabel(feature)
             plt.savefig(f"{fig_folder}Evolution_{feature}_LLM_{llm}.png")
             plt.close()
@@ -175,8 +175,6 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
     # plt.legend(title='Experiment Folder')
     plt.savefig(f"{fig_folder}tSNE_Projection_By_Exp_Folder.png")
     plt.close()
-
-    print(data["parent_ids"])
 
     # Create a 1D projection using PCA
     pca = PCA(n_components=1)
@@ -242,7 +240,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                         color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
                     )
         plt.title(f"Evolution in t-SNE Feature Space - Exp_dir: {exp_dir}")
-        plt.xlabel("Algorithm ID")
+        plt.xlabel("EvaluationD")
         plt.ylabel("t-SNE 1")
         plt.savefig(f'{fig_folder}evo/tSNE_Evolution_Exp_{exp_dir.replace("/","")}.png')
         plt.close()
@@ -273,7 +271,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                 else:
                     parent_counts = subset["parent_id"].value_counts()
                 subset["parent_size"] = subset["alg_id"].map(
-                    lambda x: np.log2(parent_counts[x]) + 3 if x in parent_counts else 3
+                    lambda x: parent_counts[x] + 3 if x in parent_counts else 3
                 )
 
                 for _, row in subset.iterrows():
@@ -289,7 +287,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                             color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
                         )
                 # ax.set_title(f'Exp_dir: {exp_dir}')
-                ax.set_xlabel("Algorithm ID")
+                ax.set_xlabel("Evaluation")
                 ax.set_ylabel("t-SNE 1")
                 ax.set_ylim(-80, 80)
 
@@ -336,18 +334,16 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
             for col_idx, exp_dir in enumerate(unique_exp_dirs):
                 ax = axes[row_idx, col_idx]
                 subset = llm_subset[llm_subset["exp_dir"] == exp_dir]
-                print(subset["parent_ids"])
                 if problem in ["EOH_BPO", "EOH_TSP"]:
                     parent_counts = Counter(
                         parent_id
                         for sublist in subset["parent_ids"]
                         for parent_id in sublist
                     )
-                    print(parent_counts)
                 else:
                     parent_counts = subset["parent_id"].value_counts()
                 subset["parent_size"] = subset["alg_id"].map(
-                    lambda x: np.log2(parent_counts[x]) + 3 if x in parent_counts else 3
+                    lambda x: parent_counts[x] + 3 if x in parent_counts else 3
                 )
 
                 for _, row in subset.iterrows():
@@ -402,7 +398,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                                 ),
                             )
                 ax.set_title(f"{llm}")  # , Exp_dir: {exp_dir}
-                ax.set_xlabel("Algorithm")
+                ax.set_xlabel("Evaluation")
                 ax.set_ylabel(code_feature.replace("_", " "))
                 ax.set_ylim(data[code_feature].min() - 1, data[code_feature].max() + 1)
 
@@ -458,7 +454,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                 else:
                     parent_counts = subset["parent_id"].value_counts()
                 subset["parent_size"] = subset["alg_id"].map(
-                    lambda x: np.log2(parent_counts[x]) + 3 if x in parent_counts else 3
+                    lambda x: parent_counts[x] + 3 if x in parent_counts else 3
                 )
 
                 for _, row in subset.iterrows():
@@ -474,7 +470,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                             color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
                         )
                 ax.set_title(f"{llm}")  # , Exp_dir: {exp_dir}
-                ax.set_xlabel("Algorithm ID")
+                ax.set_xlabel("Evaluation")
                 ax.set_ylabel("t-SNE 1")
                 ax.set_ylim(data["tsne_x"].min() - 5, data["tsne_x"].max() + 5)
 
@@ -523,7 +519,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
             else:
                 parent_counts = subset["parent_id"].value_counts()
             subset.loc[:, "parent_size"] = subset["alg_id"].map(
-                lambda x: np.log2(parent_counts[x]) + 3 if x in parent_counts else 3
+                lambda x: parent_counts[x] + 3 if x in parent_counts else 3
             )
 
             for _, row in subset.iterrows():
@@ -571,8 +567,8 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                             color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
                         )
             ax.set_title(f"{llm}")  # , Exp_dir: {exp_dir}
-            ax.set_xlabel("Algorithm")
-            ax.set_ylabel(f"PCA 1- {pca.explained_variance_ratio_[0]:0.2f}%")
+            ax.set_xlabel("Evaluation")
+            ax.set_ylabel(f"PCA 1- {pca.explained_variance_ratio_[0]:0.2f}")
             ax.set_ylim(data["pca_x"].min() - 1, data["pca_x"].max() + 1)
 
     # Add colorbar as the last subplot in each row

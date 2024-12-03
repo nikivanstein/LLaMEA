@@ -399,7 +399,7 @@ def plot_optimization_graphs(data, expfolder):
                         markersize=row["parent_size"],
                         color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
                     )
-        plt.xlabel("Algorithm ID")
+        plt.xlabel("Evaluation")
         plt.ylabel(x_data.replace("_", " "))
         plt.ylim(data[x_data].min() - 1, data[x_data].max() + 1)
         plt.tight_layout()

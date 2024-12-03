@@ -733,8 +733,8 @@ if __name__ == "__main__":
     labels = ["EoH"]
     exp_labels = ["BPO", "TSP"]
 
-    results = []
     for exp_i in range(len([exp_dirs_bpo, exp_dirs_tsp])):
+        results = []
         exp_dirs = [exp_dirs_bpo, exp_dirs_tsp][exp_i]
         exp_label = exp_labels[exp_i]
 
