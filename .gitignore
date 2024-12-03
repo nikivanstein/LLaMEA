@@ -170,4 +170,12 @@ iohbest10/
 user_tsp_gls/algs/
 benchmarks/LLMdesignedEA/LLMdesignedEA-comp
 benchmarks/user_tsp_gls/tsplib/
-ast/img/
+
+
+#AST img and alg folders
+ast/fixed_mutation_experiments
+ast/dynamic_mutation_experiments
+ast/EoH_runs
+ast/*output*
+ast/img*
+ast/graphstats*

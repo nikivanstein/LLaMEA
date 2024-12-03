@@ -272,286 +272,544 @@ if __name__ == "__main__":
 
     budget = 100
 
-    exp_dirs = [
-        "runs/exp-09-06_122145-gpt-4o-2024-05-13-ES BP-HPO-long",
-        "runs/exp-09-02_095606-gpt-4o-2024-05-13-ES BP-HPO-long",
-        "runs/exp-08-30_141720-gpt-4o-2024-05-13-ES BP-HPO-long",
-    ]
+    if True:  # switch to turn off some part of the code
+        exp_dirs = [
+            "runs/exp-09-06_122145-gpt-4o-2024-05-13-ES BP-HPO-long",
+            "runs/exp-09-02_095606-gpt-4o-2024-05-13-ES BP-HPO-long",
+            "runs/exp-08-30_141720-gpt-4o-2024-05-13-ES BP-HPO-long",
+        ]
 
-    colors = ["C0", "C0", "C1", "C1", "C2", "C2", "C3", "k"]
-    linestyles = [
-        "solid",
-        "dotted",
-        "solid",
-        "dotted",
-        "solid",
-        "dotted",
-        "solid",
-        "solid",
-    ]
-    labels = ["LLaMEA-HPO"]
+        colors = ["C0", "C0", "C1", "C1", "C2", "C2", "C3", "k"]
+        linestyles = [
+            "solid",
+            "dotted",
+            "solid",
+            "dotted",
+            "solid",
+            "dotted",
+            "solid",
+            "solid",
+        ]
+        labels = ["LLaMEA-HPO"]
 
-    best_ever_code = ""
-    best_ever_name = ""
-    best_ever_config = {}
-    best_ever_fitness = -100
-    results = []
-    for i in range(len(exp_dirs)):
-        convergence = np.ones(budget) * -100
-        # convergence_default = np.zeros(budget)
-        code_diff_ratios = np.zeros(budget)
-        best_so_far = -np.Inf
-        best_so_far_default = 0
-        previous_code = ""
-        previous_config = {}
-        previous_name = ""
-        previous_gen = 0
-        log_file = exp_dirs[i] + "/log.jsonl"
-        if os.path.exists(log_file):
-            with jsonlines.open(log_file) as reader:
-                for obj in reader.iter(type=dict, skip_invalid=True):
-                    stats = []
-                    gen = 0
-                    fitness = None
-                    code_diff = 0
-                    code = ""
-                    if "_solution" in obj.keys():
-                        code = obj["_solution"]
-                    if "_generation" in obj.keys():
-                        gen = obj["_generation"]
-                    if "_fitness" in obj.keys():
-                        fitness = obj["_fitness"]
-                        # print(fitness)
-                    else:
+        best_ever_code = ""
+        best_ever_name = ""
+        best_ever_config = {}
+        best_ever_fitness = -100
+        results = []
+        for i in range(len(exp_dirs)):
+            convergence = np.ones(budget) * -100
+            # convergence_default = np.zeros(budget)
+            code_diff_ratios = np.zeros(budget)
+            best_so_far = -np.Inf
+            best_so_far_default = 0
+            previous_code = ""
+            previous_config = {}
+            previous_name = ""
+            previous_gen = 0
+            log_file = exp_dirs[i] + "/log.jsonl"
+            if os.path.exists(log_file):
+                with jsonlines.open(log_file) as reader:
+                    for obj in reader.iter(type=dict, skip_invalid=True):
+                        stats = []
+                        gen = 0
                         fitness = None
+                        code_diff = 0
+                        code = ""
+                        if "_solution" in obj.keys():
+                            code = obj["_solution"]
+                        if "_generation" in obj.keys():
+                            gen = obj["_generation"]
+                        if "_fitness" in obj.keys():
+                            fitness = obj["_fitness"]
+                            # print(fitness)
+                        else:
+                            fitness = None
 
-                    if fitness > best_ever_fitness:
-                        best_ever_fitness = fitness
-                        best_ever_code = code
-                        best_ever_config = obj["incumbent"]
-                        best_ever_name = obj["_name"]
+                        if fitness > best_ever_fitness:
+                            best_ever_fitness = fitness
+                            best_ever_code = code
+                            best_ever_config = obj["incumbent"]
+                            best_ever_name = obj["_name"]
 
-                    if fitness <= best_so_far:
-                        code_diff = code_compare(previous_code, code, False)
+                        if fitness <= best_so_far:
+                            code_diff = code_compare(previous_code, code, False)
+                        else:
+                            name = obj["_name"]
+                            print(f"-- {gen} -- {previous_name} --> {name}")
+                            code_diff = code_compare(previous_code, code, False)
+                            best_so_far = fitness
+
+                            previous_gen = gen
+                            previous_code = code
+                            previous_name = name
+                            previous_config = obj["incumbent"]
+
+                        code_diff_ratios[gen] = code_diff
+                        convergence[gen] = fitness
+
+                        try:
+                            stats = process_code(code, False)
+                        except Exception as e:
+                            print(e)
+                            continue
+
+                        stats["code_diff"] = code_diff
+                        stats["fitness"] = 0.0
+                        stats["LLM"] = labels[0]
+                        stats["exp_dir"] = exp_dirs[i]
+                        stats["alg_id"] = gen
+                        stats["parent_id"] = previous_gen
+                        stats["fitness"] = fitness
+                        results.append(stats)
+
+        exp_dirs = ["run1", "run2", "run3"]
+        convergence_lines = []
+        for exp_dir in exp_dirs:
+            conv_line = np.ones(budget * 200) * -np.Inf
+            best_so_far = -np.Inf
+            teller = 0
+            gen = 0
+            for k in range(5):
+                with open(
+                    "benchmarks/EoHresults/Prob1_OnlineBinPacking/"
+                    + exp_dir
+                    + f"/population_generation_{k}.json"
+                ) as f:
+                    pop = json.load(f)
+                for ind in pop:
+                    # if teller > budget:
+                    #     break
+                    if -1 * ind["objective"] > best_so_far:
+                        best_so_far = -1 * ind["objective"]
+                    conv_line[teller] = best_so_far
+                    if k == 0:
+                        teller += 1
                     else:
-                        name = obj["_name"]
-                        print(f"-- {gen} -- {previous_name} --> {name}")
-                        code_diff = code_compare(previous_code, code, False)
-                        best_so_far = fitness
-
-                        previous_gen = gen
-                        previous_code = code
-                        previous_name = name
-                        previous_config = obj["incumbent"]
-
-                    code_diff_ratios[gen] = code_diff
-                    convergence[gen] = fitness
-
+                        for x in range(5):  # EoH creates 5 offspring per individual
+                            conv_line[teller] = best_so_far
+                            teller += 1
+                    code = ind["code"]
                     try:
                         stats = process_code(code, False)
-                    except Exception as e:
-                        print(e)
+                    except Exception:
                         continue
 
-                    stats["code_diff"] = code_diff
+                    stats["code_diff"] = 0
                     stats["fitness"] = 0.0
-                    stats["LLM"] = labels[0]
-                    stats["exp_dir"] = exp_dirs[i]
+                    stats["LLM"] = "EoH"
+                    stats["exp_dir"] = exp_dir
                     stats["alg_id"] = gen
-                    stats["parent_id"] = previous_gen
-                    stats["fitness"] = fitness
+                    stats["parent_id"] = gen
+                    stats["fitness"] = -1 * ind["objective"]
                     results.append(stats)
+                    gen += 1
 
-    exp_dirs = ["run1", "run2", "run3"]
-    convergence_lines = []
-    for exp_dir in exp_dirs:
-        conv_line = np.ones(budget * 200) * -np.Inf
-        best_so_far = -np.Inf
-        teller = 0
-        gen = 0
-        for k in range(5):
-            with open(
-                "benchmarks/EoHresults/Prob1_OnlineBinPacking/"
-                + exp_dir
-                + f"/population_generation_{k}.json"
-            ) as f:
-                pop = json.load(f)
-            for ind in pop:
-                # if teller > budget:
-                #     break
-                if -1 * ind["objective"] > best_so_far:
-                    best_so_far = -1 * ind["objective"]
-                conv_line[teller] = best_so_far
-                if k == 0:
-                    teller += 1
-                else:
-                    for x in range(5):  # EoH creates 5 offspring per individual
-                        conv_line[teller] = best_so_far
-                        teller += 1
-                code = ind["code"]
-                try:
-                    stats = process_code(code, False)
-                except Exception:
-                    continue
+        convergence_lines.append(np.array(conv_line))
 
-                stats["code_diff"] = 0
-                stats["fitness"] = 0.0
-                stats["LLM"] = "EoH"
-                stats["exp_dir"] = exp_dir
-                stats["alg_id"] = gen
-                stats["parent_id"] = gen
-                stats["fitness"] = -1 * ind["objective"]
-                results.append(stats)
-                gen += 1
+        import pandas as pd
 
-    convergence_lines.append(np.array(conv_line))
+        resultdf = pd.DataFrame.from_dict(results)
+        print(resultdf)
 
-    import pandas as pd
+        resultdf.to_csv("ast/graphstats_BP.csv", index=False)
 
-    resultdf = pd.DataFrame.from_dict(results)
-    print(resultdf)
+        # TSP ------------------------------------------------------------
 
-    resultdf.to_csv("ast/graphstats_BP.csv", index=False)
+        exp_dirs = [
+            "runs/exp-08-29_201655-gpt-4o-2024-05-13-ES TSP-HPO",
+            "runs/exp-08-30_142330-gpt-4o-2024-05-13-ES TSP-HPO-deter",
+            "runs/exp-09-02_105043-gpt-4o-2024-05-13-ES TSP-HPO-deter",
+        ]
 
-    # TSP ------------------------------------------------------------
+        colors = ["C0", "C0", "C1", "C1", "C2", "C2", "C3", "k"]
+        linestyles = [
+            "solid",
+            "dotted",
+            "solid",
+            "dotted",
+            "solid",
+            "dotted",
+            "solid",
+            "solid",
+        ]
+        labels = ["LLaMEA-HPO"]
 
-    exp_dirs = [
-        "runs/exp-08-29_201655-gpt-4o-2024-05-13-ES TSP-HPO",
-        "runs/exp-08-30_142330-gpt-4o-2024-05-13-ES TSP-HPO-deter",
-        "runs/exp-09-02_105043-gpt-4o-2024-05-13-ES TSP-HPO-deter",
-    ]
-
-    colors = ["C0", "C0", "C1", "C1", "C2", "C2", "C3", "k"]
-    linestyles = [
-        "solid",
-        "dotted",
-        "solid",
-        "dotted",
-        "solid",
-        "dotted",
-        "solid",
-        "solid",
-    ]
-    labels = ["LLaMEA-HPO"]
-
-    best_ever_code = ""
-    best_ever_name = ""
-    best_ever_config = {}
-    best_ever_fitness = -100
-    results = []
-    for i in range(len(exp_dirs)):
-        convergence = np.ones(budget) * -100
-        # convergence_default = np.zeros(budget)
-        code_diff_ratios = np.zeros(budget)
-        best_so_far = -np.Inf
-        best_so_far_default = 0
-        previous_code = ""
-        previous_config = {}
-        previous_name = ""
-        previous_gen = 0
-        log_file = exp_dirs[i] + "/log.jsonl"
-        if os.path.exists(log_file):
-            with jsonlines.open(log_file) as reader:
-                for obj in reader.iter(type=dict, skip_invalid=True):
-                    stats = []
-                    gen = 0
-                    fitness = None
-                    code_diff = 0
-                    code = ""
-                    if "_solution" in obj.keys():
-                        code = obj["_solution"]
-                    if "_generation" in obj.keys():
-                        gen = obj["_generation"]
-                    if "_fitness" in obj.keys():
-                        fitness = obj["_fitness"]
-                        # print(fitness)
-                    else:
+        best_ever_code = ""
+        best_ever_name = ""
+        best_ever_config = {}
+        best_ever_fitness = -100
+        results = []
+        for i in range(len(exp_dirs)):
+            convergence = np.ones(budget) * -100
+            # convergence_default = np.zeros(budget)
+            code_diff_ratios = np.zeros(budget)
+            best_so_far = -np.Inf
+            best_so_far_default = 0
+            previous_code = ""
+            previous_config = {}
+            previous_name = ""
+            previous_gen = 0
+            log_file = exp_dirs[i] + "/log.jsonl"
+            if os.path.exists(log_file):
+                with jsonlines.open(log_file) as reader:
+                    for obj in reader.iter(type=dict, skip_invalid=True):
+                        stats = []
+                        gen = 0
                         fitness = None
+                        code_diff = 0
+                        code = ""
+                        if "_solution" in obj.keys():
+                            code = obj["_solution"]
+                        if "_generation" in obj.keys():
+                            gen = obj["_generation"]
+                        if "_fitness" in obj.keys():
+                            fitness = obj["_fitness"]
+                            # print(fitness)
+                        else:
+                            fitness = None
 
-                    if fitness > best_ever_fitness:
-                        best_ever_fitness = fitness
-                        best_ever_code = code
-                        best_ever_config = obj["incumbent"]
-                        best_ever_name = obj["_name"]
+                        if fitness > best_ever_fitness:
+                            best_ever_fitness = fitness
+                            best_ever_code = code
+                            best_ever_config = obj["incumbent"]
+                            best_ever_name = obj["_name"]
 
-                    if fitness <= best_so_far:
-                        code_diff = code_compare(previous_code, code, False)
+                        if fitness <= best_so_far:
+                            code_diff = code_compare(previous_code, code, False)
+                        else:
+                            name = obj["_name"]
+                            print(f"-- {gen} -- {previous_name} --> {name}")
+                            code_diff = code_compare(previous_code, code, False)
+                            best_so_far = fitness
+
+                            previous_gen = gen
+                            previous_code = code
+                            previous_name = name
+                            previous_config = obj["incumbent"]
+
+                        code_diff_ratios[gen] = code_diff
+                        convergence[gen] = fitness
+
+                        try:
+                            stats = process_code(code, False)
+                        except Exception as e:
+                            print(e)
+                            continue
+
+                        stats["code_diff"] = code_diff
+                        stats["fitness"] = 0.0
+                        stats["LLM"] = labels[0]
+                        stats["exp_dir"] = exp_dirs[i]
+                        stats["alg_id"] = gen
+                        stats["parent_id"] = previous_gen
+                        stats["fitness"] = fitness
+                        results.append(stats)
+
+        exp_dirs = ["run1", "run2", "run3"]
+        convergence_lines = []
+        for exp_dir in exp_dirs:
+            conv_line = np.ones(budget * 200) * -np.Inf
+            best_so_far = -np.Inf
+            teller = 0
+            gen = 0
+            for k in range(5):
+                with open(
+                    "benchmarks/EoHresults/Prob2_TSP_GLS/"
+                    + exp_dir
+                    + f"/population_generation_{k}.json"
+                ) as f:
+                    pop = json.load(f)
+                for ind in pop:
+                    # if teller > budget:
+                    #     break
+                    if -1 * ind["objective"] > best_so_far:
+                        best_so_far = -1 * ind["objective"]
+                    conv_line[teller] = best_so_far
+                    if k == 0:
+                        teller += 1
                     else:
-                        name = obj["_name"]
-                        print(f"-- {gen} -- {previous_name} --> {name}")
-                        code_diff = code_compare(previous_code, code, False)
-                        best_so_far = fitness
-
-                        previous_gen = gen
-                        previous_code = code
-                        previous_name = name
-                        previous_config = obj["incumbent"]
-
-                    code_diff_ratios[gen] = code_diff
-                    convergence[gen] = fitness
-
+                        for x in range(5):  # EoH creates 5 offspring per individual
+                            conv_line[teller] = best_so_far
+                            teller += 1
+                    code = ind["code"]
                     try:
                         stats = process_code(code, False)
-                    except Exception as e:
-                        print(e)
+                    except Exception:
                         continue
 
-                    stats["code_diff"] = code_diff
+                    stats["code_diff"] = 0
                     stats["fitness"] = 0.0
-                    stats["LLM"] = labels[0]
-                    stats["exp_dir"] = exp_dirs[i]
+                    stats["LLM"] = "EoH"
+                    stats["exp_dir"] = exp_dir
                     stats["alg_id"] = gen
-                    stats["parent_id"] = previous_gen
-                    stats["fitness"] = fitness
+                    stats["parent_id"] = gen
+                    stats["fitness"] = -1 * ind["objective"]
                     results.append(stats)
+                    gen += 1
 
-    exp_dirs = ["run1", "run2", "run3"]
-    convergence_lines = []
-    for exp_dir in exp_dirs:
-        conv_line = np.ones(budget * 200) * -np.Inf
-        best_so_far = -np.Inf
-        teller = 0
-        gen = 0
-        for k in range(5):
-            with open(
-                "benchmarks/EoHresults/Prob2_TSP_GLS/"
-                + exp_dir
-                + f"/population_generation_{k}.json"
-            ) as f:
-                pop = json.load(f)
-            for ind in pop:
-                # if teller > budget:
-                #     break
-                if -1 * ind["objective"] > best_so_far:
-                    best_so_far = -1 * ind["objective"]
-                conv_line[teller] = best_so_far
-                if k == 0:
-                    teller += 1
-                else:
-                    for x in range(5):  # EoH creates 5 offspring per individual
-                        conv_line[teller] = best_so_far
-                        teller += 1
-                code = ind["code"]
-                try:
-                    stats = process_code(code, False)
-                except Exception:
-                    continue
+        convergence_lines.append(np.array(conv_line))
 
-                stats["code_diff"] = 0
-                stats["fitness"] = 0.0
-                stats["LLM"] = "EoH"
-                stats["exp_dir"] = exp_dir
-                stats["alg_id"] = gen
-                stats["parent_id"] = gen
-                stats["fitness"] = -1 * ind["objective"]
-                results.append(stats)
-                gen += 1
+        import pandas as pd
 
-    convergence_lines.append(np.array(conv_line))
+        resultdf = pd.DataFrame.from_dict(results)
+        print(resultdf)
 
+        resultdf.to_csv("ast/graphstats_TSP.csv", index=False)
+
+        # FIXED MUTATION RUNS ------------------------------
+
+        base_dir = "ast/fixed_mutation_experiments/exp-prompt5-gpt-4o/"
+
+        exp_dirs_2 = [
+            "2/exp-11-01_150117-LLaMEA-gpt-4o-2",
+            "2/exp-11-01_184846-LLaMEA-gpt-4o-2",
+            "2/exp-11-01_211835-LLaMEA-gpt-4o-2",
+        ]
+        exp_dirs_5 = [
+            "5/exp-11-01_150117-LLaMEA-gpt-4o-5",
+            "5/exp-11-01_174133-LLaMEA-gpt-4o-5",
+            "5/exp-11-01_192257-LLaMEA-gpt-4o-5",
+        ]
+        exp_dirs_10 = [
+            "10/exp-11-01_150117-LLaMEA-gpt-4o-10",
+            "10/exp-11-01_171429-LLaMEA-gpt-4o-10",
+            "10/exp-11-01_201137-LLaMEA-gpt-4o-10",
+        ]
+        exp_dirs_20 = [
+            "20/exp-11-01_150117-LLaMEA-gpt-4o-20",
+            "20/exp-11-01_163509-LLaMEA-gpt-4o-20",
+            "20/exp-11-01_200903-LLaMEA-gpt-4o-20",
+        ]
+        exp_dirs_40 = [
+            "40/exp-11-01_150117-LLaMEA-gpt-4o-40",
+            "40/exp-11-01_164611-LLaMEA-gpt-4o-40",
+            "40/exp-11-01_184424-LLaMEA-gpt-4o-40",
+        ]
+        # TODO
+        exp_dirs_var = [
+            "LLaMEA/ast/dynamic_mutation_experiments/exp-gpt-4o-prompt5/exp-11-11_010046-LLaMEA-gpt-4o-beta1.5-exp1",
+            "exp-11-11_025552-LLaMEA-gpt-4o-beta1.5-exp1",
+            "exp-11-11_040455-LLaMEA-gpt-4o-beta1.5-exp1",
+            "exp-11-11_064837-LLaMEA-gpt-4o-beta1.5-exp1",
+            "exp-11-11_090052-LLaMEA-gpt-4o-beta1.5-exp1",
+        ]
+
+        colors = ["C0", "C0", "C1", "C1", "C2", "C2", "C3", "k"]
+        linestyles = [
+            "solid",
+            "dotted",
+            "solid",
+            "dotted",
+            "solid",
+            "dotted",
+            "solid",
+            "solid",
+        ]
+        labels = ["LLaMEA-GPT4o"]
+        exp_labels = ["2", "5", "10", "20", "40"]
+
+        results = []
+        for exp_i in range(
+            len([exp_dirs_2, exp_dirs_5, exp_dirs_10, exp_dirs_20, exp_dirs_40])
+        ):
+            exp_dirs = [exp_dirs_2, exp_dirs_5, exp_dirs_10, exp_dirs_20, exp_dirs_40][
+                exp_i
+            ]
+            exp_label = exp_labels[exp_i]
+
+            for i in range(len(exp_dirs)):
+                convergence = np.ones(budget) * -100
+                # convergence_default = np.zeros(budget)
+                code_diff_ratios = np.zeros(budget)
+                best_so_far = -np.Inf
+                best_so_far_default = 0
+                previous_code = ""
+                previous_config = {}
+                previous_name = ""
+                previous_gen = 0
+                parent_id = 0
+                best_so_far_id = 0
+                alg_id = 0
+                best_ever_code = ""
+                best_ever_name = ""
+                best_ever_config = {}
+                best_ever_fitness = -100
+                log_file = base_dir + exp_dirs[i] + "/log.jsonl"
+                print(log_file)
+                if os.path.exists(log_file):
+                    with jsonlines.open(log_file) as reader:
+                        reader_i = -1
+                        for obj in reader.iter(type=dict, skip_invalid=True):
+                            reader_i += 1
+                            stats = []
+                            gen = 0
+                            fitness = None
+                            code_diff = 0
+                            code = ""
+                            if "solution" in obj.keys():
+                                code = obj["solution"]
+                            if "generation" in obj.keys():
+                                gen = obj["generation"]
+                            # if "parent_id" in obj.keys():
+                            parent_id = best_so_far_id
+                            if "id" in obj.keys():
+                                alg_id = obj["id"]
+                            if "fitness" in obj.keys():
+                                fitness = obj["fitness"]
+                                # print(fitness)
+                            else:
+                                fitness = None
+
+                            if fitness > best_ever_fitness:
+                                best_ever_fitness = fitness
+                                best_ever_code = code
+                                best_ever_name = obj["name"]
+                                best_so_far_id = reader_i
+
+                            if fitness <= best_so_far:
+                                code_diff = code_compare(previous_code, code, False)
+                            else:
+                                name = obj["name"]
+                                print(f"-- {gen} -- {previous_name} --> {name}")
+                                code_diff = code_compare(previous_code, code, False)
+                                best_so_far = fitness
+
+                                previous_gen = gen
+                                previous_code = code
+                                previous_name = name
+
+                            code_diff_ratios[gen] = code_diff
+                            convergence[gen] = fitness
+
+                            try:
+                                stats = process_code(code, False)
+                            except Exception as e:
+                                print(e)
+                                continue
+
+                            stats["code_diff"] = code_diff
+                            stats["fitness"] = 0.0
+                            stats["LLM"] = labels[0] + " " + exp_label
+                            stats["exp_dir"] = exp_dirs[i].replace("/", "_")
+                            stats["alg_id"] = reader_i
+                            # stats["gen"] = reader_i
+                            stats["parent_id"] = (
+                                parent_id if parent_id != None else reader_i
+                            )
+                            stats["fitness"] = fitness
+                            results.append(stats)
+
+        resultdf = pd.DataFrame.from_dict(results)
+        print(resultdf)
+
+        resultdf.to_csv("ast/graphstats_BBO2.csv", index=False)
+
+    # EOH runs ------------------------------
     import pandas as pd
 
-    resultdf = pd.DataFrame.from_dict(results)
-    print(resultdf)
+    base_dir = "ast/EoH_runs/"
 
-    resultdf.to_csv("ast/graphstats_TSP.csv", index=False)
+    exp_dirs_bpo = [
+        "bpo_EoHrun1",
+        "bpo_EoHrun2",
+        "bpo_EoHrun3",
+    ]
+    exp_dirs_tsp = [
+        "tsp_EoHrun1",
+        "tsp_EoHrun2",
+        "tsp_EoHrun3",
+    ]
+
+    colors = ["C0", "C0", "C0", "C1", "C1", "C1"]
+    linestyles = [
+        "solid",
+        "solid",
+        "solid",
+        "dotted",
+        "dotted",
+        "dotted",
+    ]
+    labels = ["EoH"]
+    exp_labels = ["BPO", "TSP"]
+
+    results = []
+    for exp_i in range(len([exp_dirs_bpo, exp_dirs_tsp])):
+        exp_dirs = [exp_dirs_bpo, exp_dirs_tsp][exp_i]
+        exp_label = exp_labels[exp_i]
+
+        for i in range(len(exp_dirs)):
+            convergence = np.ones(budget) * -100
+            # convergence_default = np.zeros(budget)
+            code_diff_ratios = np.zeros(budget)
+            best_so_far = -np.Inf
+            best_so_far_default = 0
+            previous_code = ""
+            previous_config = {}
+            previous_name = ""
+            previous_gen = 0
+            parent_id = 0
+            best_so_far_id = 0
+            alg_id = 0
+            best_ever_code = ""
+            best_ever_name = ""
+            best_ever_config = {}
+            best_ever_fitness = -100
+            log_file = base_dir + exp_dirs[i] + ".jsonl"
+            print(log_file)
+            if os.path.exists(log_file):
+                with jsonlines.open(log_file) as reader:
+                    reader_i = -1
+                    for obj in reader.iter(type=dict, skip_invalid=True):
+                        reader_i += 1
+                        stats = []
+                        fitness = None
+                        code_diff = 0
+                        code = ""
+                        if "code" in obj.keys():
+                            code = obj["code"]
+                        if code == None:
+                            continue
+                        # if "parent_id" in obj.keys():
+                        parents = []
+                        if "id" in obj.keys():
+                            alg_id = obj["id"]
+                        if "parents" in obj.keys():
+                            parents = obj["parents"]
+                        if "objective" in obj.keys() and obj["objective"] != None:
+                            fitness = obj["objective"] * -1
+                            # print(fitness)
+                        else:
+                            fitness = -100
+
+                        if fitness > best_ever_fitness:
+                            best_ever_fitness = fitness
+                            best_ever_code = code
+                            best_ever_name = obj["algorithm"]
+                            best_so_far_id = reader_i
+
+                        name = obj["algorithm"]
+                        # print(f"-- {gen} -- {previous_name} --> {name}")
+                        best_so_far = fitness
+                        previous_code = code
+                        previous_name = name
+
+                        try:
+                            stats = process_code(code, False)
+                        except Exception as e:
+                            print(e)
+                            continue
+
+                        stats["fitness"] = 0.0
+                        stats["LLM"] = labels[0] + " " + exp_label
+                        stats["exp_dir"] = exp_dirs[i].replace("/", "_")
+                        stats["alg_id"] = alg_id
+                        stats["gen"] = reader_i
+                        stats["parent_ids"] = parents
+                        stats["fitness"] = fitness
+                        results.append(stats)
+
+        resultdf = pd.DataFrame.from_dict(results)
+        print(resultdf)
+
+        resultdf.to_csv(f"ast/graphstats_EOH_{exp_label}.csv", index=False)

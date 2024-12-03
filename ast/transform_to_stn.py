@@ -22,6 +22,11 @@ for problem in ["BP", "TSP", "BBO"]:
             "Min Depth",
             "Transitivity",
             "Clustering Variance",
+            "mean_complexity",
+            "total_complexity",
+            "mean_token_count",
+            "mean_parameter_count",
+            "total_parameter_count",
         ]
     )  # "Eigenvector Centrality"
 
@@ -38,7 +43,12 @@ for problem in ["BP", "TSP", "BBO"]:
 
     # Separate metadata and features
     metadata_cols = ["fitness", "LLM", "exp_dir", "alg_id", "parent_id"]
+    if "code_diff" in data.columns:
+        metadata_cols.append("code_diff")
     features = data.drop(columns=metadata_cols)
+
+    print(problem, features.columns, len(features.columns))
+
     metadata = data[metadata_cols]
 
     # Normalize feature columns

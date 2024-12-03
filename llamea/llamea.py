@@ -2,22 +2,22 @@
 This module integrates OpenAI's language models to generate and evolve
 algorithms to automatically evaluate (for example metaheuristics evaluated on BBOB).
 """
+import concurrent.futures
+import logging
+import random
 import re
 import traceback
-import logging
+
+import numpy as np
+from ConfigSpace import ConfigurationSpace
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-import numpy as np
-import concurrent.futures
-from ConfigSpace import ConfigurationSpace
-import random
-
+from .ast import analyze_run
+from .individual import Individual
 from .llm import LLMmanager
 from .loggers import ExperimentLogger
 from .utils import NoCodeException, handle_timeout
-from .individual import Individual
-
 
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
@@ -143,6 +143,7 @@ Provide the Python code, a one-line description with the main idea (without ente
             self.worst_value = np.Inf
         self.best_so_far = Individual("", "", "", None, 0, None)
         self.best_so_far.set_scores(self.worst_value, "", "")
+        self.experiment_name = experiment_name
 
         if self.log:
             modelname = self.model.replace(":", "_")
@@ -498,4 +499,7 @@ With code:
                 f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             )
         self.progress_bar.close()
+        if self.log:
+            analyze_run(self.logger.dirname, self.budget, self.experiment_name)
+
         return self.best_so_far
