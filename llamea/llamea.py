@@ -500,6 +500,9 @@ With code:
             )
         self.progress_bar.close()
         if self.log:
-            analyze_run(self.logger.dirname, self.budget, self.experiment_name)
+            try:
+                analyze_run(self.logger.dirname, self.budget, self.experiment_name)
+            except Exception:
+                pass
 
         return self.best_so_far
