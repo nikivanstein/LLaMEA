@@ -1,0 +1,463 @@
+-- 0 --  --> AdaptiveDifferentialEvolution
+-- 0 --  --> AdaptiveDifferentialEvolution
+best_so_far_default 0.26334969093752314
+best_so_far 0.45982424326754545
+-- 15 -- AdaptiveDifferentialEvolution --> QEADTLS
+best_so_far_default 0.31221502357733494
+best_so_far 0.48766302904768477
+-- 72 -- QEADTLS --> QEDDE_AS
+best_so_far_default 0.41744822362997064
+best_so_far 0.4892679814898002
+-- 78 -- QEDDE_AS --> QEAD_MS
+best_so_far_default 0.41957072000561396
+best_so_far 0.4896229327437232
+best code import numpy as np
+
+class QEAD_MS:
+    def __init__(self, budget=10000, dim=10, CR=0.9, F=0.5, pop_size=50, alpha=0.1, elite_frac=0.2, ls_prob=0.2, ls_intensity=0.5, beta=1.5, t_size=3, qt_prob=0.2, qt_intensity=0.5):
+        self.budget = budget
+        self.dim = dim
+        self.CR = CR  # Crossover probability
+        self.F = F  # Differential weight
+        self.pop_size = pop_size
+        self.alpha = alpha  # Coefficient for quantum mechanics-inspired position update
+        self.elite_frac = elite_frac  # Fraction of elite individuals
+        self.ls_prob = ls_prob  # Probability for local search
+        self.ls_intensity = ls_intensity  # Intensity of local search perturbation
+        self.beta = beta  # Lévy flight exponent
+        self.t_size = t_size  # Tournament size for selection
+        self.qt_prob = qt_prob  # Probability of applying quantum tunneling
+        self.qt_intensity = qt_intensity  # Intensity of quantum tunneling
+
+    def __call__(self, func):
+        self.f_opt = np.Inf
+        self.x_opt = None
+
+        # Initialize population
+        pop = np.random.uniform(func.bounds.lb, func.bounds.ub, (self.pop_size, self.dim))
+        fitness = np.array([func(ind) for ind in pop])
+        eval_count = self.pop_size
+
+        while eval_count < self.budget:
+            new_pop = np.copy(pop)
+            for i in range(self.pop_size):
+                # Tournament selection
+                tournament_indices = np.random.choice(self.pop_size, self.t_size, replace=False)
+                best_idx = tournament_indices[np.argmin(fitness[tournament_indices])]
+                a = pop[best_idx]
+
+                # Differential mutation
+                idxs = [idx for idx in range(self.pop_size) if idx != i]
+                b, c = pop[np.random.choice(idxs, 2, replace=False)]
+                mutant = np.clip(a + self.F * (b - c), func.bounds.lb, func.bounds.ub)
+
+                # Hybrid Mutation: Differential Mutation and Quantum-inspired Mutation
+                if np.random.rand() < self.alpha:
+                    hybrid = a + self.alpha * np.sin(2 * np.pi * np.random.rand(self.dim))
+                    hybrid = np.clip(hybrid, func.bounds.lb, func.bounds.ub)
+                    mutant = (mutant + hybrid) / 2
+
+                # Crossover
+                crossover_mask = np.random.rand(self.dim) < self.CR
+                if not np.any(crossover_mask):
+                    crossover_mask[np.random.randint(0, self.dim)] = True
+                trial = np.where(crossover_mask, mutant, pop[i])
+
+                # Quantum tunneling
+                if np.random.rand() < self.qt_prob:
+                    trial = self._quantum_tunneling(trial, eval_count)
+
+                # Evaluate trial
+                f_trial = func(trial)
+                eval_count += 1
+
+                if f_trial < fitness[i]:
+                    new_pop[i] = trial
+                    fitness[i] = f_trial
+
+                    if f_trial < self.f_opt:
+                        self.f_opt = f_trial
+                        self.x_opt = trial
+
+                # Local search with Lévy flight
+                if np.random.rand() < self.ls_prob:
+                    ls_candidate = trial + self.ls_intensity * self._levy_flight(self.dim, self.beta)
+                    ls_candidate = np.clip(ls_candidate, func.bounds.lb, func.bounds.ub)
+                    f_ls_candidate = func(ls_candidate)
+                    eval_count += 1
+
+                    if f_ls_candidate < fitness[i]:
+                        new_pop[i] = ls_candidate
+                        fitness[i] = f_ls_candidate
+
+                        if f_ls_candidate < self.f_opt:
+                            self.f_opt = f_ls_candidate
+                            self.x_opt = ls_candidate
+
+                if eval_count >= self.budget:
+                    break
+
+            # Elite strategy: retain best individuals with stochastic influence
+            elite_count = int(self.pop_size * self.elite_frac)
+            elite_indices = np.argsort(fitness)[:elite_count]
+            elite_pop = pop[elite_indices]
+            for j in range(elite_count):
+                if np.random.rand() < 0.5:  # Stochastic retention
+                    new_pop[j] = elite_pop[j]
+
+            pop = new_pop
+
+        return self.f_opt, self.x_opt
+
+    def _levy_flight(self, dim, beta):
+        sigma_u = (np.math.gamma(1 + beta) * np.sin(np.pi * beta / 2) / (np.math.gamma((1 + beta) / 2) * beta * 2**((beta - 1) / 2)))**(1 / beta)
+        u = np.random.normal(0, sigma_u, dim)
+        v = np.random.normal(0, 1, dim)
+        step = u / np.abs(v)**(1 / beta)
+        return step
+
+    def _quantum_tunneling(self, individual, eval_count):
+        # Apply quantum tunneling to an individual with a certain intensity
+        intensity = self.qt_intensity * (1 - eval_count / self.budget)  # Decrease intensity over time
+        tunneling_step = intensity * np.tanh(np.random.randn(self.dim))
+        return np.clip(individual + tunneling_step, -5.0, 5.0)
+best config {'CR': 0.9842218251415, 'F': 0.6541686890304, 'alpha': 0.1343085238088, 'beta': 1.5707054805537, 'elite_frac': 0.1000560455511, 'ls_intensity': 0.1277390993541, 'ls_prob': 0.1165016389872, 'pop_size': 34, 'qt_intensity': 0.9008618184667, 'qt_prob': 0.2664265249594, 't_size': 4}
+-- 0 --  --> AdaptiveDifferentialEvolution
+best_so_far_default 0.38961586939502585
+best_so_far 0.4436653744508417
+-- 53 -- AdaptiveDifferentialEvolution --> QE_ADE_DM
+best_so_far_default 0.2773955165040548
+best_so_far 0.4622826816341293
+-- 63 -- QE_ADE_DM --> QE_ADE_ES_DM
+best_so_far_default 0.4909439982108822
+best_so_far 0.49169396622358585
+-- 72 -- QE_ADE_ES_DM --> QE_ADE_DMS
+best_so_far_default 0.47749316108272677
+best_so_far 0.5063470172421289
+best code import numpy as np
+
+class QE_ADE_DMS:
+    def __init__(self, budget=10000, dim=10, pop_size=20, F=0.8, CR=0.9, q_probability=0.1, adaptive_rate=0.1, elite_percentage=0.2):
+        self.budget = budget
+        self.dim = dim
+        self.pop_size = pop_size
+        self.F = F
+        self.CR = CR
+        self.q_probability = q_probability
+        self.adaptive_rate = adaptive_rate
+        self.elite_percentage = elite_percentage
+
+    def __call__(self, func):
+        self.f_opt = np.inf
+        self.x_opt = None
+        lb, ub = func.bounds.lb, func.bounds.ub
+        population = np.random.uniform(lb, ub, (self.pop_size, self.dim))
+        fitness = np.array([func(ind) for ind in population])
+        evaluations = self.pop_size
+
+        while evaluations < self.budget:
+            elite_count = int(self.pop_size * self.elite_percentage)
+            elite_indices = np.argsort(fitness)[:elite_count]
+            elite_population = population[elite_indices]
+
+            for i in range(self.pop_size):
+                idxs = [idx for idx in range(self.pop_size) if idx != i]
+                # Dynamic selection between rand/1 and best/1 mutation strategies
+                if evaluations % 2 == 0:
+                    a, b, c = population[np.random.choice(idxs, 3, replace=False)]
+                    mutant = np.clip(a + self.F * (b - c), lb, ub)
+                else:
+                    best = population[np.argmin(fitness)]
+                    a, b = population[np.random.choice(idxs, 2, replace=False)]
+                    mutant = np.clip(best + self.F * (a - b), lb, ub)
+
+                cross_points = np.random.rand(self.dim) < self.CR
+                if not np.any(cross_points):
+                    cross_points[np.random.randint(0, self.dim)] = True
+                trial = np.where(cross_points, mutant, population[i])
+                f_trial = func(trial)
+                evaluations += 1
+
+                if f_trial < fitness[i]:
+                    population[i] = trial
+                    fitness[i] = f_trial
+                    if f_trial < self.f_opt:
+                        self.f_opt = f_trial
+                        self.x_opt = trial
+
+                if evaluations >= self.budget:
+                    break
+
+            # Quantum-guided perturbation
+            if np.random.rand() < self.q_probability and evaluations + self.pop_size <= self.budget:
+                perturbation = np.random.uniform(-0.1, 0.1, (elite_count, self.dim))
+                elite_population = np.clip(elite_population + perturbation, lb, ub)
+                elite_fitness = np.array([func(ind) for ind in elite_population])
+                evaluations += elite_count
+                if np.min(elite_fitness) < self.f_opt:
+                    self.f_opt = np.min(elite_fitness)
+                    self.x_opt = elite_population[np.argmin(elite_fitness)]
+
+                # Replace the worst individuals with perturbed elite individuals
+                worst_indices = np.argsort(fitness)[-elite_count:]
+                population[worst_indices] = elite_population
+                fitness[worst_indices] = elite_fitness
+
+            # Adaptive adjustment of F and CR
+            successful_trials = np.sum(fitness < self.f_opt)
+            if successful_trials > 0:
+                self.F = np.clip(self.F + self.adaptive_rate * (successful_trials / self.pop_size - 0.2), 0.1, 1.0)
+                self.CR = np.clip(self.CR + self.adaptive_rate * (successful_trials / self.pop_size - 0.2), 0.1, 1.0)
+
+        return self.f_opt, self.x_opt
+best config {'CR': 0.9676295964695, 'F': 0.5456020488432, 'adaptive_rate': 0.4502074290688, 'elite_percentage': 0.1794866470937, 'pop_size': 58, 'q_probability': 0.3699368948572}
+-- 0 --  --> DEAMC
+best_so_far_default 0.384341694212308
+best_so_far 0.46834447781442445
+-- 5 -- DEAMC --> QIADE
+best_so_far_default 0.296693199027995
+best_so_far 0.4769646223780284
+-- 7 -- QIADE --> QIDE_AN
+best_so_far_default 0.2973776356713642
+best_so_far 0.5049125050058494
+best code import numpy as np
+
+class QIDE_AN:
+    def __init__(self, budget=10000, dim=10, F=0.7, CR=0.9, NP=50, q_factor=0.1, neighborhood_size=3):
+        self.budget = budget
+        self.dim = dim
+        self.F = F  # mutation factor
+        self.CR = CR  # crossover probability
+        self.NP = NP  # population size
+        self.q_factor = q_factor  # quantum factor for adaptive mutation
+        self.neighborhood_size = neighborhood_size  # number of neighbors considered
+
+    def __call__(self, func):
+        bounds = np.array([func.bounds.lb, func.bounds.ub])
+        population = np.random.uniform(bounds[0], bounds[1], (self.NP, self.dim))
+        fitness = np.array([func(ind) for ind in population])
+        self.budget -= self.NP
+        
+        self.f_opt = np.min(fitness)
+        self.x_opt = population[np.argmin(fitness)]
+
+        while self.budget > 0:
+            for i in range(self.NP):
+                # Select neighborhood
+                neighbors = population[np.random.choice(self.NP, self.neighborhood_size, replace=False)]
+                
+                # Mutation and crossover
+                a, b, c = neighbors[np.random.choice(self.neighborhood_size, 3, replace=False)]
+                mutant = np.clip(a + self.F * (b - c), bounds[0], bounds[1])
+                
+                cross_points = np.random.rand(self.dim) < self.CR
+                if not np.any(cross_points):
+                    cross_points[np.random.randint(0, self.dim)] = True
+                
+                trial = np.where(cross_points, mutant, population[i])
+                
+                f_trial = func(trial)
+                if f_trial < fitness[i]:
+                    population[i] = trial
+                    fitness[i] = f_trial
+                    
+                    if f_trial < self.f_opt:
+                        self.f_opt = f_trial
+                        self.x_opt = trial
+                
+                # Adaptive mutation factor
+                if np.random.rand() < self.q_factor:
+                    self.F = np.random.uniform(0.5, 1.0)
+                
+                self.budget -= 1
+                if self.budget <= 0:
+                    break
+                
+        return self.f_opt, self.x_opt
+best config {'CR': 0.9641922362872, 'F': 0.8327528224273, 'NP': 19, 'neighborhood_size': 3, 'q_factor': 0.0506989969398}
+-- 0 --  --> AdaptiveDifferentialEvolution
+best_so_far_default 0.38961586939502585
+best_so_far 0.46851546061419685
+-- 46 -- AdaptiveDifferentialEvolution --> QuantumInspiredHybridDifferentialEvolution
+best_so_far_default 0.2291423124563492
+best_so_far 0.4836115996191708
+-- 53 -- QuantumInspiredHybridDifferentialEvolution --> QuantumEnhancedAdaptiveDifferentialEvolutionLS
+best_so_far_default 0.26124927045103513
+best_so_far 0.4883344132026269
+-- 69 -- QuantumEnhancedAdaptiveDifferentialEvolutionLS --> QuantumEnhancedAdaptiveDifferentialEvolutionLSv2
+best_so_far_default 0.21646354823825764
+best_so_far 0.5055751690816913
+-- 73 -- QuantumEnhancedAdaptiveDifferentialEvolutionLSv2 --> QuantumEnhancedADEES
+best_so_far_default 0.2207436801429665
+best_so_far 0.516497318590285
+best code import numpy as np
+
+class QuantumEnhancedADEES:
+    def __init__(self, budget=10000, dim=10, CR=0.9, F=0.8, population_size=50, quantum_factor=0.1, elite_fraction=0.1, alpha=0.5):
+        self.budget = budget
+        self.dim = dim
+        self.CR = CR
+        self.F = F
+        self.population_size = population_size
+        self.quantum_factor = quantum_factor
+        self.elite_fraction = elite_fraction
+        self.alpha = alpha
+
+    def initialize_population(self):
+        return np.random.uniform(-5, 5, (self.population_size, self.dim))
+
+    def quantum_perturb(self, individual, global_best):
+        perturbation = self.quantum_factor * (global_best - individual) * np.random.rand(self.dim)
+        return np.clip(individual + perturbation, -5, 5)
+
+    def mutate(self, population, best_idx):
+        idxs = np.arange(self.population_size)
+        for i in range(self.population_size):
+            idxs_choice = np.delete(idxs, i)
+            indices = np.random.choice(idxs_choice, 3, replace=False)
+            mutant = population[indices[0]] + self.F * (population[indices[1]] - population[indices[2]])
+            if np.random.rand() < self.alpha:
+                mutant += self.F * (population[best_idx] - population[i])
+            mutant = np.clip(mutant, -5, 5)
+            yield i, mutant
+
+    def crossover(self, target, mutant):
+        cross_points = np.random.rand(self.dim) < self.CR
+        if not np.any(cross_points):
+            cross_points[np.random.randint(0, self.dim)] = True
+        trial = np.where(cross_points, mutant, target)
+        return trial
+
+    def select_elites(self, population, fitness):
+        num_elites = int(self.elite_fraction * self.population_size)
+        elite_indices = np.argsort(fitness)[:num_elites]
+        elites = population[elite_indices]
+        return elites
+
+    def __call__(self, func):
+        population = self.initialize_population()
+        fitness = np.array([func(ind) for ind in population])
+        best_idx = np.argmin(fitness)
+        global_best = population[best_idx]
+        best_fitness = fitness[best_idx]
+
+        num_evaluations = self.population_size
+        iteration = 0
+
+        while num_evaluations < self.budget:
+            elites = self.select_elites(population, fitness)
+            for i, mutant in self.mutate(population, best_idx):
+                trial = self.crossover(population[i], mutant)
+                if iteration % int(1 / self.quantum_factor) == 0:
+                    trial = self.quantum_perturb(trial, global_best)
+                trial_fitness = func(trial)
+                num_evaluations += 1
+
+                if trial_fitness < fitness[i]:
+                    population[i] = trial
+                    fitness[i] = trial_fitness
+
+                    if trial_fitness < best_fitness:
+                        best_fitness = trial_fitness
+                        global_best = trial
+                        best_idx = i
+
+            iteration += 1
+
+            if iteration % 10 == 0:
+                for elite in elites:
+                    perturbed = self.quantum_perturb(elite, global_best)
+                    perturbed_fitness = func(perturbed)
+                    num_evaluations += 1
+
+                    if perturbed_fitness < best_fitness:
+                        best_fitness = perturbed_fitness
+                        global_best = perturbed
+
+        self.f_opt = best_fitness
+        self.x_opt = global_best
+
+        return self.f_opt, self.x_opt
+best config {'CR': 0.9582151457806, 'F': 0.4664004254205, 'alpha': 0.3946044262893, 'elite_fraction': 0.0883911283037, 'population_size': 27, 'quantum_factor': 0.0386966019491}
+-- 0 --  --> AdaptiveDifferentialEvolution
+best_so_far_default 0.26213722837644987
+best_so_far 0.4256564737935492
+-- 3 -- AdaptiveDifferentialEvolution --> AdaptiveQuantumDifferentialEvolution
+best_so_far_default 0.38527696321965255
+best_so_far 0.45128607999725895
+-- 8 -- AdaptiveQuantumDifferentialEvolution --> AdaptiveQuantumInspiredDifferentialEvolution
+best_so_far_default 0.27928206262802424
+best_so_far 0.4822632734795149
+-- 14 -- AdaptiveQuantumInspiredDifferentialEvolution --> AdaptiveQuantumInspiredParticleSwarmDifferentialEvolution
+best_so_far_default 0.3393181894491061
+best_so_far 0.511988501976037
+best code import numpy as np
+
+class AdaptiveQuantumInspiredParticleSwarmDifferentialEvolution:
+    def __init__(self, budget=10000, dim=10, F=0.5, CR=0.9, population_size=50, q_factor=0.5, inertia=0.7, cognitive=1.5, social=1.5):
+        self.budget = budget
+        self.dim = dim
+        self.F = F  # Differential weight
+        self.CR = CR  # Crossover probability
+        self.population_size = population_size
+        self.q_factor = q_factor  # Quantum-inspired factor
+        self.inertia = inertia  # Inertia weight
+        self.cognitive = cognitive  # Cognitive weight
+        self.social = social  # Social weight
+
+    def __call__(self, func):
+        bounds = np.array([func.bounds.lb, func.bounds.ub]).T
+        
+        # Initialize population
+        population = np.random.uniform(bounds[:, 0], bounds[:, 1], (self.population_size, self.dim))
+        velocity = np.random.uniform(-1, 1, (self.population_size, self.dim))
+        personal_best = population.copy()
+        personal_best_fitness = np.apply_along_axis(func, 1, personal_best)
+        
+        self.f_opt = np.min(personal_best_fitness)
+        self.x_opt = personal_best[np.argmin(personal_best_fitness)]
+        
+        evaluations = self.population_size
+
+        while evaluations < self.budget:
+            for i in range(self.population_size):
+                # Update velocity and position using PSO principles
+                r1, r2 = np.random.rand(2)
+                velocity[i] = (self.inertia * velocity[i] +
+                               self.cognitive * r1 * (personal_best[i] - population[i]) +
+                               self.social * r2 * (self.x_opt - population[i]))
+                population[i] = np.clip(population[i] + velocity[i], bounds[:, 0], bounds[:, 1])
+                
+                # Mutation
+                idxs = [idx for idx in range(self.population_size) if idx != i]
+                a, b, c = population[np.random.choice(idxs, 3, replace=False)]
+                mutant = np.clip(a + self.F * (b - c), bounds[:, 0], bounds[:, 1])
+                
+                # Quantum-inspired mechanism
+                if np.random.rand() < self.q_factor:
+                    mutant = self.x_opt + self.F * (mutant - self.x_opt)
+                    mutant = np.clip(mutant, bounds[:, 0], bounds[:, 1])
+                
+                # Crossover
+                cross_points = np.random.rand(self.dim) < self.CR
+                if not np.any(cross_points):
+                    cross_points[np.random.randint(0, self.dim)] = True
+
+                trial = np.where(cross_points, mutant, population[i])
+                
+                # Selection
+                f = func(trial)
+                evaluations += 1
+                if f < personal_best_fitness[i]:
+                    personal_best_fitness[i] = f
+                    personal_best[i] = trial
+                    
+                    if f < self.f_opt:
+                        self.f_opt = f
+                        self.x_opt = trial
+                
+                if evaluations >= self.budget:
+                    break
+        
+        return self.f_opt, self.x_opt
+best config {'CR': 0.9401154051077, 'F': 0.6166340007053, 'cognitive': 1.8414376083977, 'inertia': 0.1586498560194, 'population_size': 36, 'q_factor': 0.6559532541016, 'social': 0.1025268317309}
