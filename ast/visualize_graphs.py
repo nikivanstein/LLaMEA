@@ -17,7 +17,7 @@ import ast
 # import xgboost as xgb
 
 # Load the dataset without the "degrees" column
-for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
+for problem in ["BP", "TSP", "BBO"]:
     data_path = f"ast/graphstats_{problem}.csv"
     fig_folder = f"ast/img{problem}/"
     os.makedirs(fig_folder, exist_ok=True)
@@ -35,23 +35,66 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
 
     # Filter out LLM configurations containing '1,1'
     data = data[~data["LLM"].str.contains("1,1")]
+    data = data[~data["LLM"].str.contains("EoH")]
+
+    plt.figure(figsize=(8, 6))
+    plt.hist(data["fitness"], bins=20, edgecolor="black", alpha=0.7)
+    plt.title("Histogram of LLaMEA Fitness")
+    plt.xlabel("Fitness")
+    plt.ylabel("Frequency")
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
+    plt.savefig(f"bins{problem}_fitness.png")
+    plt.clf()
+
+    if problem in ["BP", "TSP"]:
+        # load also the EOH_BPO data and transform the original
+        EOHpath = f"ast/graphstats_EOH_{problem}.csv"
+        EOHdata = pd.read_csv(EOHpath)
+        EOHdata.replace([np.inf, -np.inf], np.nan, inplace=True)
+        EOHdata["fitness"] = EOHdata["fitness"]
+
+        plt.figure(figsize=(8, 6))
+        plt.hist(EOHdata["fitness"], bins=20, edgecolor="black", alpha=0.7)
+        plt.title("Histogram of EoH Fitness")
+        plt.xlabel("Fitness")
+        plt.ylabel("Frequency")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
+        plt.savefig(f"EoH{problem}_fitness.png")
+        plt.clf()
+
+        # transform the data
+        data["parent_ids"] = data["parent_id"].apply(
+            lambda x: [x] if pd.notnull(x) else []
+        )
+        data["gen"] = data["alg_id"]
+        data = data.drop(columns=["parent_id"])
+        data = pd.concat([data, EOHdata], ignore_index=True)
 
     if problem == "BP":
         data["fitness"].fillna(-0.04, inplace=True)
         data.loc[data["fitness"] < -0.04, "fitness"] = -0.04
-        data["fitness"] = 1 + (data["fitness"] * 20)
+        # data["fitness"] = -1 * data["fitness"]
     elif problem == "BBO":
         data["fitness"].fillna(0, inplace=True)
     else:
         data["fitness"].fillna(-0.2, inplace=True)
         data.loc[data["fitness"] < -0.2, "fitness"] = -0.2
-        data["fitness"] = 1 + (data["fitness"] * 20)
+        # data["fitness"] = -1 * data["fitness"]
+        # data["fitness"] = 1 + (data["fitness"] * 20)
 
+    plt.figure(figsize=(8, 6))
+    plt.hist(data["fitness"], bins=20, edgecolor="black", alpha=0.7)
+    plt.title("Histogram of all Fitness")
+    plt.xlabel("Fitness")
+    plt.ylabel("Frequency")
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
+    plt.savefig(f"all{problem}_fitness.png")
+    plt.clf()
+
+    print(problem, data["fitness"].describe())
     data["fitness"] = minmax_scale(data["fitness"])
 
     data.fillna(0, inplace=True)
-    print(data["fitness"].describe())
-
     # data["fitness"] = minmax_scale(data["fitness"])
 
     print(data["fitness"].describe())
@@ -60,7 +103,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
     metadata_cols = ["fitness", "LLM", "exp_dir", "alg_id"]
     if "code_diff" in data.columns:
         metadata_cols.append("code_diff")
-    if problem in ["EOH_BPO", "EOH_TSP"]:
+    if problem in ["BP", "TSP"]:
         metadata_cols.append("gen")
         metadata_cols.append("parent_ids")
         data["parent_ids"] = data["parent_ids"].apply(
@@ -192,7 +235,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
     for exp_dir in metadata["exp_dir"].unique():
         subset = data[data["exp_dir"] == exp_dir]
 
-        if problem in ["EOH_BPO", "EOH_TSP"]:
+        if problem in ["BP", "TSP"]:
             parent_counts = Counter(
                 parent_id
                 for parent_ids in subset["parent_ids"]
@@ -206,33 +249,34 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
 
         plt.figure()
         for _, row in subset.iterrows():
-            if problem in ["EOH_BPO", "EOH_TSP"]:
+            if problem in ["BP", "TSP"]:
                 for parent_id in row["parent_ids"]:
                     if parent_id in subset["alg_id"].values:
                         parent_row = subset[subset["alg_id"] == parent_id].iloc[0]
                         plt.plot(
                             [parent_row["gen"], row["gen"]],
                             [parent_row["tsne_x"], row["tsne_x"]],
-                            "-o",
-                            color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
+                            "-",
+                            color="k",
+                            alpha=0.2,
                         )
-                    else:
-                        plt.plot(
-                            row["gen"],
-                            row["tsne_x"],
-                            "o",
-                            color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
-                        )
+
+                    plt.plot(
+                        row["gen"],
+                        row["tsne_x"],
+                        "o",
+                        color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
+                    )
             else:
                 if row["parent_id"] in subset["alg_id"].values:
                     parent_row = subset[subset["alg_id"] == row["parent_id"]].iloc[0]
                     plt.plot(
                         [parent_row["alg_id"], row["alg_id"]],
                         [parent_row["tsne_x"], row["tsne_x"]],
-                        "-o",
-                        color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
+                        "-",
+                        color="k",
+                        alpha=0.2,
                     )
-                else:
                     plt.plot(
                         row["alg_id"],
                         row["tsne_x"],
@@ -245,7 +289,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
         plt.savefig(f'{fig_folder}evo/tSNE_Evolution_Exp_{exp_dir.replace("/","")}.png')
         plt.close()
 
-    if problem not in ["EOH_BPO", "EOH_TSP"]:
+    if problem not in ["BP", "TSP"]:
         # Plot the evolution in t-SNE feature space for each experiment folder, colored by fitness
         tsne_first_component = data["tsne_x"]
         for llm in metadata["LLM"].unique():
@@ -262,7 +306,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
             for i, exp_dir in enumerate(unique_exp_dirs):
                 ax = axes[i]
                 subset = llm_subset[llm_subset["exp_dir"] == exp_dir]
-                if problem in ["EOH_BPO", "EOH_TSP"]:
+                if problem in ["BP", "TSP"]:
                     parent_counts = Counter(
                         parent_id
                         for parent_ids in subset["parent_ids"]
@@ -271,7 +315,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                 else:
                     parent_counts = subset["parent_id"].value_counts()
                 subset["parent_size"] = subset["alg_id"].map(
-                    lambda x: parent_counts[x] + 3 if x in parent_counts else 3
+                    lambda x: parent_counts[x] + 5 if x in parent_counts else 5
                 )
 
                 for _, row in subset.iterrows():
@@ -334,7 +378,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
             for col_idx, exp_dir in enumerate(unique_exp_dirs):
                 ax = axes[row_idx, col_idx]
                 subset = llm_subset[llm_subset["exp_dir"] == exp_dir]
-                if problem in ["EOH_BPO", "EOH_TSP"]:
+                if problem in ["BP", "TSP"]:
                     parent_counts = Counter(
                         parent_id
                         for sublist in subset["parent_ids"]
@@ -343,11 +387,11 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                 else:
                     parent_counts = subset["parent_id"].value_counts()
                 subset["parent_size"] = subset["alg_id"].map(
-                    lambda x: parent_counts[x] + 3 if x in parent_counts else 3
+                    lambda x: parent_counts[x] + 5 if x in parent_counts else 5
                 )
 
                 for _, row in subset.iterrows():
-                    if problem in ["EOH_BPO", "EOH_TSP"]:
+                    if problem in ["BP", "TSP"]:
                         for parent_id in row["parent_ids"]:
                             if parent_id in subset["alg_id"].values:
                                 parent_row = subset[subset["alg_id"] == parent_id].iloc[
@@ -356,22 +400,20 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                                 ax.plot(
                                     [parent_row["gen"], row["gen"]],
                                     [parent_row[code_feature], row[code_feature]],
-                                    "-o",
-                                    markersize=row["parent_size"],
-                                    color=plt.cm.viridis(
-                                        row["fitness"] / max(data["fitness"])
-                                    ),
+                                    "-",
+                                    color="k",
+                                    alpha=0.2,
                                 )
-                            else:
-                                ax.plot(
-                                    row["gen"],
-                                    row[code_feature],
-                                    "o",
-                                    markersize=row["parent_size"],
-                                    color=plt.cm.viridis(
-                                        row["fitness"] / max(data["fitness"])
-                                    ),
-                                )
+
+                            ax.plot(
+                                row["gen"],
+                                row[code_feature],
+                                "o",
+                                markersize=row["parent_size"],
+                                color=plt.cm.viridis(
+                                    row["fitness"] / max(data["fitness"])
+                                ),
+                            )
 
                     else:
                         if row["parent_id"] in subset["alg_id"].values:
@@ -381,22 +423,17 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                             ax.plot(
                                 [parent_row["alg_id"], row["alg_id"]],
                                 [parent_row[code_feature], row[code_feature]],
-                                "-o",
-                                markersize=row["parent_size"],
-                                color=plt.cm.viridis(
-                                    row["fitness"] / max(data["fitness"])
-                                ),
+                                "-",
+                                color="k",
+                                alpha=0.2,
                             )
-                        else:
-                            ax.plot(
-                                row["alg_id"],
-                                row[code_feature],
-                                "o",
-                                markersize=row["parent_size"],
-                                color=plt.cm.viridis(
-                                    row["fitness"] / max(data["fitness"])
-                                ),
-                            )
+                        ax.plot(
+                            row["alg_id"],
+                            row[code_feature],
+                            "o",
+                            markersize=row["parent_size"],
+                            color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
+                        )
                 ax.set_title(f"{llm}")  # , Exp_dir: {exp_dir}
                 ax.set_xlabel("Evaluation")
                 ax.set_ylabel(code_feature.replace("_", " "))
@@ -427,7 +464,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
         plt.close()
 
     # Plot the evolution in t-SNE feature space for each experiment folder, colored by fitness, with first 3 exp folders per LLM
-    if problem not in ["EOH_BPO", "EOH_TSP"]:
+    if problem not in ["BP", "TSP"]:
         llms = metadata["LLM"].unique()
         print(llms)
         num_cols = 3
@@ -445,7 +482,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
             for col_idx, exp_dir in enumerate(unique_exp_dirs):
                 ax = axes[row_idx, col_idx]
                 subset = llm_subset[llm_subset["exp_dir"] == exp_dir]
-                if problem in ["EOH_BPO", "EOH_TSP"]:
+                if problem in ["BP", "TSP"]:
                     parent_counts = Counter(
                         parent_id
                         for parent_ids in subset["parent_ids"]
@@ -454,7 +491,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                 else:
                     parent_counts = subset["parent_id"].value_counts()
                 subset["parent_size"] = subset["alg_id"].map(
-                    lambda x: parent_counts[x] + 3 if x in parent_counts else 3
+                    lambda x: parent_counts[x] + 5 if x in parent_counts else 5
                 )
 
                 for _, row in subset.iterrows():
@@ -510,7 +547,7 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
         for col_idx, exp_dir in enumerate(unique_exp_dirs):
             ax = axes[row_idx, col_idx]
             subset = llm_subset[llm_subset["exp_dir"] == exp_dir]
-            if problem in ["EOH_BPO", "EOH_TSP"]:
+            if problem in ["BP", "TSP"]:
                 parent_counts = Counter(
                     parent_id
                     for parent_ids in subset["parent_ids"]
@@ -523,29 +560,24 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
             )
 
             for _, row in subset.iterrows():
-                if problem in ["EOH_BPO", "EOH_TSP"]:
+                if problem in ["BP", "TSP"]:
                     for parent_id in row["parent_ids"]:
                         if parent_id in subset["alg_id"].values:
                             parent_row = subset[subset["alg_id"] == parent_id].iloc[0]
                             ax.plot(
                                 [parent_row["gen"], row["gen"]],
                                 [parent_row["pca_x"], row["pca_x"]],
-                                "-o",
-                                markersize=row["parent_size"],
-                                color=plt.cm.viridis(
-                                    row["fitness"] / max(data["fitness"])
-                                ),
+                                "-",
+                                color="k",
+                                alpha=0.2,
                             )
-                        else:
-                            ax.plot(
-                                row["gen"],
-                                row["pca_x"],
-                                "o",
-                                markersize=row["parent_size"],
-                                color=plt.cm.viridis(
-                                    row["fitness"] / max(data["fitness"])
-                                ),
-                            )
+                        ax.plot(
+                            row["gen"],
+                            row["pca_x"],
+                            "o",
+                            markersize=row["parent_size"],
+                            color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
+                        )
                 else:
                     if row["parent_id"] in subset["alg_id"].values:
                         parent_row = subset[subset["alg_id"] == row["parent_id"]].iloc[
@@ -554,18 +586,18 @@ for problem in ["BP", "TSP", "BBO", "BBO2", "EOH_BPO", "EOH_TSP"]:
                         ax.plot(
                             [parent_row["alg_id"], row["alg_id"]],
                             [parent_row["pca_x"], row["pca_x"]],
-                            "-o",
-                            markersize=row["parent_size"],
-                            color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
+                            "-",
+                            color="k",
+                            alpha=0.2,
                         )
-                    else:
-                        ax.plot(
-                            row["alg_id"],
-                            row["pca_x"],
-                            "o",
-                            markersize=row["parent_size"],
-                            color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
-                        )
+
+                    ax.plot(
+                        row["alg_id"],
+                        row["pca_x"],
+                        "o",
+                        markersize=row["parent_size"],
+                        color=plt.cm.viridis(row["fitness"] / max(data["fitness"])),
+                    )
             ax.set_title(f"{llm}")  # , Exp_dir: {exp_dir}
             ax.set_xlabel("Evaluation")
             ax.set_ylabel(f"PCA 1- {pca.explained_variance_ratio_[0]:0.2f}")
