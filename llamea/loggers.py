@@ -15,6 +15,8 @@ def convert_to_serializable(data):
         return int(data)
     elif isinstance(data, np.floating):
         return float(data)
+    if isinstance(data, np.ndarray):
+        return data.tolist()
     else:
         return data
 
@@ -62,15 +64,27 @@ class ExperimentLogger:
         with jsonlines.open(f"{self.dirname}/conversationlog.jsonl", "a") as file:
             file.write(conversation_object)
 
-    def log_others(self, others):
+    def set_attempt(self, attempt):
+        self.attempt = attempt
+
+    def log_population(self, population):
+        for p in population:
+            self.log_code(self.attempt, p.name, p.solution)
+            if p.configspace != None:
+                self.log_configspace(self.attempt, p.name, p.configspace)
+            self.log_individual(p)
+            self.attempt += 1
+
+    def log_individual(self, individual):
         """
-        Logs the given dictionary in a general logfile.
+        Logs the given individual in a general logfile.
 
         Args:
-            others (dict): Stuff to be logged.
+            individual (Individual): potential solution to be logged.
         """
+        ind_dict = individual.to_dict()
         with jsonlines.open(f"{self.dirname}/log.jsonl", "a") as file:
-            file.write(convert_to_serializable(others))
+            file.write(convert_to_serializable(ind_dict))
 
     def log_code(self, attempt, algorithm_name, code):
         """

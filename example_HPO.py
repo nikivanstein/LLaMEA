@@ -22,7 +22,7 @@ from smac import AlgorithmConfigurationFacade
 
 
 def evaluateBBOBWithHPO(
-    code, algorithm_name, algorithm_name_long, configuration_space=None, explogger=None
+    solution, explogger = None
 ):
     """
     Evaluates an optimization algorithm on the BBOB (Black-Box Optimization Benchmarking) suite and computes
@@ -31,29 +31,16 @@ def evaluateBBOBWithHPO(
 
     Parameters:
     -----------
-    code : str
-        A string of Python code to be executed within the global context. This can be used to define or import
-        additional components required for the evaluation.
-    algorithm_name : str
-        The name of the algorithm function (as a string) that will be evaluated. This function should be
-        accessible in the global namespace.
-    algorithm_name_long : str
-        A longer, more descriptive name for the algorithm, used in logging and feedback.
-    configuration_space : object, optional
-        If provided, this object represents the configuration space for Hyperparameter Optimization (HPO).
-    explogger : object, optional
-        An experimental logger object used to log the results of the evaluation. If not provided, logging will be skipped.
+    solution : dict
+        A dictionary containing "_solution" (the code to evaluate), "_name", "_description" and "_configspace"
+
+    explogger : logger
+        A class to log additional stuff for the experiment.
 
     Returns:
     --------
-    feedback : str
-        A formatted string summarizing the algorithm's performance in terms of AOCC (Area Over the Convergence Curve).
-    auc_mean : float
-        The mean AOCC score across all evaluated problems and repetitions.
-    error : str
-        A placeholder for error messages, currently not implemented or utilized.
-    complete_log: dict
-        A dictionary that will be logged to file, to be able to analyze the results afterwards.
+    solution : dict
+        Updated solution with "_fitness", "_feedback", "incumbent" and optional "_error"
 
     Functionality:
     --------------
@@ -72,13 +59,11 @@ def evaluateBBOBWithHPO(
     - Hyperparameter Optimization (HPO) with SMAC is mentioned but not implemented.
     - The AOCC score is a metric where 1.0 is the best possible outcome, indicating optimal convergence.
 
-    Example:
-    --------
-    feedback, auc_mean, error, complete_log = evaluateBBOB("import numpy as np", "MyAlgorithm", "My Custom Algorithm")
     """
     auc_mean = 0
     auc_std = 0
-
+    code = solution.solution
+    algorithm_name = solution.name
     exec(code, globals())
     dim = 5
     budget = 2000 * dim
@@ -122,11 +107,13 @@ def evaluateBBOBWithHPO(
     inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
     # inst_feats = {str(arg): [idx] for idx, arg in enumerate(args)}
     error = ""
-    if configuration_space is None:
+    
+    if "_configspace" not in solution.keys():
         # No HPO possible, evaluate only the default
         incumbent = {}
         error = "The configuration space was not properly formatted or not present in your answer. The evaluation was done on the default configuration."
     else:
+        configuration_space = solution.configspace
         scenario = Scenario(
             configuration_space,
             name=str(int(time.time())) + "-" + algorithm_name,
@@ -139,7 +126,7 @@ def evaluateBBOBWithHPO(
             output_directory="smac3_output" if explogger is None else explogger.dirname + "/smac"
             #n_workers=10
         )
-        smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance)
+        smac = AlgorithmConfigurationFacade(scenario, get_bbob_performance, logging_level=30)
         incumbent = smac.optimize()
 
     # last but not least, perform the final validation
@@ -165,12 +152,14 @@ def evaluateBBOBWithHPO(
     auc_mean = np.mean(aucs)
     auc_std = np.std(aucs)
     dict_hyperparams = dict(incumbent)
-    feedback = f"The algorithm {algorithm_name_long} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
-    print(algorithm_name_long, algorithm, auc_mean, auc_std)
+    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with optimal hyperparameters {dict_hyperparams}."
+    print(algorithm_name, algorithm, auc_mean, auc_std)
 
-    complete_log = {"aucs": aucs, "incumbent": dict_hyperparams}
+    solution.add_metadata("aucs", aucs)
+    solution.add_metadata("incumbent", dict_hyperparams)
+    solution.set_scores(auc_mean, feedback)
     
-    return feedback, auc_mean, error, complete_log
+    return solution
 
 
 role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
@@ -211,25 +200,22 @@ An example configuration space is as follows:
 }
 ```
 
-Give an excellent and novel heuristic algorithm including its configuration space to solve this task and also give it a name. Give the response in the format:
-# Name: <name>
+Give an excellent and novel heuristic algorithm including its configuration space to solve this task and also give it a one-line description, describing the main idea. Give the response in the format:
+# Description: <short-description>
 # Code: <code>
 # Space: <configuration_space>
 """
 
-feedback_prompt = (
-    f"Either refine or redesign to improve the solution (and give it a distinct name). Give the response in the format:\n"
-    f"# Name: <name>\n"
-    f"# Code: <code>\n"
-    f"# Space: <configuration_space>"
-)
+feedback_prompts = [
+    f"Either refine or redesign to improve the solution (and give it a distinct one-line description)."
+]
 
 for experiment_i in [1]:
     es = LLaMEA(
         evaluateBBOBWithHPO,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
-        feedback_prompt=feedback_prompt,
+        mutation_prompts=feedback_prompts,
         api_key=api_key,
         experiment_name=experiment_name,
         model=ai_model,

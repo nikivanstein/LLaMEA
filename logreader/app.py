@@ -9,7 +9,7 @@ app = Flask(__name__)
 socketio = SocketIO(app)
 
 # Path to the jsonlines file
-MESSAGES_FILE = "messages.jsonl"
+MESSAGES_FILE = "/home/neocortex/repos/LLaMEA/exp-08-09_095316-codellama_7b-ES pop5-8/conversationlog.jsonl"
 
 
 @app.route("/")
