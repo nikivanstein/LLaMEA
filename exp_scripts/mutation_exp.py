@@ -16,7 +16,7 @@ torch.cuda.empty_cache()
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
 ai_model = "gpt-4o"
-experiment_name = "10"
+experiment_name = "prompt5-2"
 # Llama-3.2-1B-Instruct, Llama-3.2-3B-Instruct,
 # Meta-Llama-3.1-8B-Instruct, Meta-Llama-3.1-70B-Instruct,
 # CodeLlama-7b-Instruct-hf, CodeLlama-13b-Instruct-hf,
@@ -82,16 +82,16 @@ def evaluateBBOB(solution, explogger=None, details=False):
         i += 1
     np.save(f"currentexp/aucs-{algorithm_name}-{i}.npy", aucs)
 
-    # feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
-    # if details:
-    #     feedback = (
-    #         f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name} on Separable functions was {detailed_aucs[0]:.02f}, "
-    #         f"on functions with low or moderate conditioning {detailed_aucs[1]:.02f}, "
-    #         f"on functions with high conditioning and unimodal {detailed_aucs[2]:.02f}, "
-    #         f"on Multi-modal functions with adequate global structure {detailed_aucs[3]:.02f}, "
-    #         f"and on Multi-modal functions with weak global structure {detailed_aucs[4]:.02f}"
-    #     )
-    feedback = ""
+    feedback = f"The algorithm {algorithm_name} got an average Area over the convergence curve (AOCC, 1.0 is the best) score of {auc_mean:0.2f} with standard deviation {auc_std:0.2f}."
+    if details:
+        feedback = (
+            f"{feedback}\nThe mean AOCC score of the algorithm {algorithm_name} on Separable functions was {detailed_aucs[0]:.02f}, "
+            f"on functions with low or moderate conditioning {detailed_aucs[1]:.02f}, "
+            f"on functions with high conditioning and unimodal {detailed_aucs[2]:.02f}, "
+            f"on Multi-modal functions with adequate global structure {detailed_aucs[3]:.02f}, "
+            f"and on Multi-modal functions with weak global structure {detailed_aucs[4]:.02f}"
+        )
+    # feedback = ""
 
     print(algorithm_name, algorithm, auc_mean, auc_std)
     solution.add_metadata("aucs", aucs)
@@ -106,7 +106,7 @@ The func() can only be called as many times as the budget allows, not more. Each
 Give an excellent and novel heuristic algorithm to solve this task and also give it a one-line description with the main idea.
 """
 
-for experiment_i in range(61):
+for experiment_i in range(100):
     # A 1+1 strategy
     es = LLaMEA(evaluateBBOB, n_parents=1, n_offspring=1, api_key=api_key, task_prompt=task_prompt,
                 experiment_name=experiment_name, model=ai_model, elitism=True, HPO=False, budget=2)
