@@ -1,9 +1,18 @@
 import os
 import re
+import torch
 import openai
 import difflib
+import transformers
 import numpy as np
 from llamea import ExperimentLogger, Individual
+
+if torch.cuda.is_available():                        
+    print(f"CUDA is available. PyTorch is using GPU: {torch.cuda.get_device_name(0)}")
+    print(f"GPU device count: {torch.cuda.device_count()}")
+    print(f"Current device index: {torch.cuda.current_device()}")
+else:
+    print("CUDA is not available. Using CPU.")
 
 role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
 task_prompt = """
@@ -85,7 +94,7 @@ def construct_prompt(individual, mutation_prompt):
     description = individual.description
     feedback = individual.feedback
     num_lines = len(solution.split("\n"))
-    prob = 0.02
+    prob = 0.2
     mutation_operator = f"""
 Now, refine the strategy of the selected solution to improve it. Make sure you 
 only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you 
@@ -115,12 +124,31 @@ With code:
     return session_messages
 
 
-def llm_chat(client, model_name, session_messages, logger, generation, parent_id=None):
+def llm_chat(client, model_name, session_messages, logger, generation,
+             parent_id=None):
     logger.log_conversation(
         "LLaMEA", "\n".join([d["content"] for d in session_messages]))
-    response = client.chat.completions.create(
-        model=model_name, messages=session_messages, temperature=0.8)
-    message = response.choices[0].message.content
+    if "gpt" in model_name:
+        response = client.chat.completions.create(
+            model=model_name, messages=session_messages, temperature=0.8)
+        message = response.choices[0].message.content
+    elif "Llama" in model_name:
+        history = []
+        for msg in session_messages:
+            if msg["role"] == "LLaMEA":
+                role = "user"
+            elif "Llama" in msg["role"]:
+                role = "assistant"
+            else:
+                role = msg["role"]
+            history.append(
+                {
+                    "role": role,
+                    "content": msg["content"]
+                }
+            )
+        response = client(history, max_new_tokens=8192)
+        message = response[0]["generated_text"][-1]['content']
     logger.log_conversation(model_name, message)
     code = extract_algorithm_code(message)
     name = re.findall(
@@ -136,8 +164,6 @@ def llm_chat(client, model_name, session_messages, logger, generation, parent_id
 
 def mutation_on_same_code(model_name="gpt-4o", experiment_name=None,
                           mutation_prompt=None, budget=20):
-    api_key = os.getenv("OPENAI_API_KEY")
-    client = openai.OpenAI(api_key=api_key)
     logger = ExperimentLogger(f"LLaMEA-{model_name}-{experiment_name}")
     session_messages = [
         {"role": "system", "content": role_prompt},
@@ -146,6 +172,17 @@ def mutation_on_same_code(model_name="gpt-4o", experiment_name=None,
             "content": task_prompt + output_format_prompt,
         },
     ]
+    if "gpt" in model_name:
+        api_key = os.getenv("OPENAI_API_KEY")
+        client = openai.OpenAI(api_key=api_key)
+    elif "Llama" in model_name:
+        model_id = f"meta-llama/{model_name}"
+        client = transformers.pipeline(
+            "text-generation",
+            model=model_id,
+            model_kwargs={"torch_dtype": torch.bfloat16},
+            device_map="auto",
+        )
     init_individual = llm_chat(client, model_name, session_messages, logger, 0)
     generation = 1
     code_diffs = []
@@ -157,7 +194,6 @@ def mutation_on_same_code(model_name="gpt-4o", experiment_name=None,
             evolved_individual = llm_chat(client, model_name, new_prompt,
                                           logger, generation,
                                           init_individual.id)
-            generation += 1
         except NoCodeException:
             print(
                 "No code was extracted. The code should be encapsulated with ``` in your response.",
@@ -169,6 +205,7 @@ def mutation_on_same_code(model_name="gpt-4o", experiment_name=None,
         if evolved_individual is not None:
             code_diffs += [code_compare(init_individual.solution,
                                         evolved_individual.solution)]
+        generation += 1
     return code_diffs
 
 
@@ -182,4 +219,4 @@ def ape_lite():
     pass
 
 
-mutation_on_same_code("gpt-3.5-turbo", "2", None, 100)
+mutation_on_same_code("Llama-3.3-70B-Instruct", "20", None, 100)

@@ -1,8 +1,11 @@
 import os
 import json
 import difflib
+import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 
 
 def check_exp_num(files):
@@ -43,9 +46,9 @@ def check_same_code(files, exp_dir):
             # log_data = []
             # with open(log_file
     print(counterb / countera)
-            #         log_data += [data]
-            # for data in log_data:
-            #     print(data["feedback"])
+    #         log_data += [data]
+    # for data in log_data:
+    #     print(data["feedback"])
 
 
 def code_compare(code1, code2):
@@ -64,19 +67,22 @@ def code_compare(code1, code2):
 def code_diff(files, exp_dir):
     diffs = {"2": [], "5": [], "10": [], "20": []}
     for f in files:
-        codes = os.listdir(f"{exp_dir}/{f}/code/")
-        if len(codes) != 2:
-            continue
-        with open(f"{exp_dir}/{f}/code/{codes[0]}", "r") as file:
-            code1 = file.readlines()
-        with open(f"{exp_dir}/{f}/code/{codes[1]}", "r") as file:
-            code2 = file.readlines()
-        diff_ratio = code_compare(code1, code2)
-        if diff_ratio == 0:
-            continue
         mutation = f.split("-")[-1]
-        diffs[mutation].append(diff_ratio)
+        codes = os.listdir(f"{exp_dir}/{f}/code/")
+        codes = sorted(codes, key=lambda x: int(x.split('-')[1]))
+        for i in range(1, len(codes)):
+            with open(f"{exp_dir}/{f}/code/{codes[0]}", "r") as file:
+                code1 = file.readlines()
+            with open(f"{exp_dir}/{f}/code/{codes[i]}", "r") as file:
+                code2 = file.readlines()
+            diff_ratio = code_compare(code1, code2)
+            if diff_ratio == 0:
+                continue
+            diffs[mutation].append(diff_ratio)
+    print(f"Code difference calculation for {exp_dir} done.")
     for mutation in diffs:
+        if len(diffs[mutation]) == 0:
+            continue
         print(f"{len(diffs[mutation])} samples, mutation {mutation}: " +
               f"{sum(diffs[mutation]) / len(diffs[mutation])}")
     return diffs
@@ -91,9 +97,61 @@ def plot_diffs(diffs, exp_name):
     plt.clf()
 
 
-for exp_dir in ["100-3.5", "100-4o"]:
+def violin_plot(df, prompt, llm, title):
+    sns.violinplot(x="Mutation", y="Code Difference", data=df, cut=0,
+                   inner="stick", palette="muted", hue="Mutation",
+                   legend=False)
+    plt.xlabel("requested mutation rate")
+    plt.ylabel("code difference")
+    plt.gca().yaxis.set_major_formatter(PercentFormatter(xmax=1))
+    plt.xticks(ticks=list(range(5)), labels=["2%", "5%", "10%", "20%", "40%"])
+    plt.title(f"Code Difference Distribution\nwhen Using {prompt} with {llm}")
+    plt.tight_layout()
+    plt.savefig(title)
+    plt.cla()
+
+
+def ratio_plot(df, prompt, llm, title):
+    df_temp = df.copy()
+    df_temp["ratio"] = (df["Code Difference"] * 100) / df["Mutation"]
+    sns.stripplot(x="Mutation", y="ratio", data=df_temp, jitter=True,
+                  palette="muted", hue="Mutation", legend=False)
+    plt.axhline(y=1, color='r', linestyle='--',
+                label="delivered code difference = requested mutation rate")
+    plt.yscale("log")
+    plt.xticks(ticks=list(range(5)), labels=["2%", "5%", "10%", "20%", "40%"])
+    plt.xlabel("requested mutation rate")
+    plt.ylabel("ratio")
+    plt.title(
+        f"Ratio of Delivered Code Difference to Requested Mutation Rate\nwhen Using {prompt} with {llm}")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(title)
+    plt.cla()
+
+
+os.chdir("exp_data/CAI")
+exp_dirs = ["100-3.5", "100-4o", "100-Llama-3.3"]
+models = ["gpt-3.5-turbo", "gpt-4o", "Llama-3.3"]
+for exp_dir in exp_dirs:
+    model = models[exp_dirs.index(exp_dir)]
     files = os.listdir(exp_dir)
-    check_exp_num(files)
-    check_same_code(files, exp_dir)
+    # check_exp_num(files)
+    # check_same_code(files, exp_dir)
     diffs = code_diff(files, exp_dir)
-    plot_diffs(diffs, exp_dir)
+    keys = ["model", "prompt", "Mutation",
+            "Code Difference", "Requested", "iteration"]
+    values = []
+    for mutation in ["2", "5", "10", "20"]:
+        if len(diffs[mutation]) == 0:
+            continue
+        for i in range(len(diffs[mutation])):
+            v = diffs[mutation][i]
+            values += [[model, "prompt5", float(mutation), v,
+                       float(mutation), i+1]]
+    df = pd.DataFrame(values, columns=keys)
+    title1 = f"/scratch-shared/hyin/LLaMEA/results/CAI/{model}_code-diff.png"
+    title2 = f"/scratch-shared/hyin/LLaMEA/results/CAI/{model}_ratio.png"
+    print(f"Plotting prompt5 with {model}...")
+    violin_plot(df, "prompt5", model, title1)
+    ratio_plot(df, "prompt5", model, title2)
