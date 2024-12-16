@@ -169,7 +169,9 @@ Provide the Python code, a one-line description with the main idea (without ente
             session_messages = [
                 {
                     "role": "user",
-                    "content": self.role_prompt + self.task_prompt + self.output_format_prompt,
+                    "content": self.role_prompt
+                    + self.task_prompt
+                    + self.output_format_prompt,
                 },
             ]
             try:
@@ -287,12 +289,12 @@ With code:
 {self.output_format_prompt}
 """
         session_messages = [
-            {"role": "user", "content": self.role_prompt+final_prompt},
+            {"role": "user", "content": self.role_prompt + final_prompt},
         ]
 
         if self._random:  # not advised to use, only for debugging purposes
             session_messages = [
-                {"role": "user", "content": self.role_promp+self.task_prompt},
+                {"role": "user", "content": self.role_promp + self.task_prompt},
             ]
         # Logic to construct the new prompt based on current evolutionary state.
         return session_messages

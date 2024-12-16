@@ -3575,18 +3575,18 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pymoosh"
-version = "3.91"
+version = "3.2"
 description = "A scattering matrix formalism to solve Maxwell's equations in a multilayered structure."
 optional = false
 python-versions = "*"
 files = [
-    {file = "PyMoosh-3.91.tar.gz", hash = "sha256:d7ee565a528ac9a8c039800092071dca3ec98d447b2f7881670b4f57e991f9c1"},
+    {file = "PyMoosh-3.2-py3-none-any.whl", hash = "sha256:c1a587242b637b4b50b982cf05775485937125954566da1e2f108513a7a8159d"},
+    {file = "PyMoosh-3.2.tar.gz", hash = "sha256:d431c371d4470700c1f295fa125b27b2a12878417d9290d8e4e19b6f5044ec53"},
 ]
 
 [package.dependencies]
 matplotlib = "*"
 numpy = "*"
-refractiveindex = "*"
 scipy = "*"
 
 [[package]]
@@ -4150,21 +4150,6 @@ files = [
 [package.dependencies]
 attrs = ">=22.2.0"
 rpds-py = ">=0.7.0"
-
-[[package]]
-name = "refractiveindex"
-version = "0.0.5"
-description = ""
-optional = false
-python-versions = "<4.0,>=3.10"
-files = [
-    {file = "refractiveindex-0.0.5-py3-none-any.whl", hash = "sha256:a2283a623376f88652adc7c20ba59e3b147d8a0e092eac6ba5bff2ee1fad97b5"},
-    {file = "refractiveindex-0.0.5.tar.gz", hash = "sha256:a36def0afe16cf5a040cba2c1cdba5f78ed3b4d603a5a7a7686915540383ca14"},
-]
-
-[package.dependencies]
-pyyaml = ">=6.0,<7.0"
-scipy = ">=1.9.3,<2.0.0"
 
 [[package]]
 name = "regex"
@@ -5061,4 +5046,4 @@ six = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "ced77572625db780bb88dca5133f76fdbd75fad5b3475a50d860ef09ffbb32b0"
+content-hash = "6d00a56f9cb32ce4306cea95355e6648e93c93ec4c34950eb99d5d268e760c34"

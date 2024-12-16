@@ -1,34 +1,33 @@
 import os
-import numpy as np
-import ioh
-from nevergrad import benchmark
-
-from ioh import wrap_problem, get_problem, logger
 import re
-from misc import aoc_logger, correct_aoc, OverBudgetException
-from llamea import LLaMEA
 import time
 
-from benchmarks.photonics.problem import objective_f, cost_minibragg, upper_lower_bound
+import numpy as np
+from nevergrad import benchmark
+
+import ioh
+from benchmarks.minibrag.problem import cost_minibragg, objective_f, upper_lower_bound
+from ioh import get_problem, logger, wrap_problem
+from llamea import LLaMEA
+from misc import OverBudgetException, aoc_logger, correct_aoc
 
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gemini-1.5-flash" #"gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
-experiment_name = "photonics"
+ai_model = "gemini-1.5-flash"  # "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+experiment_name = "minibrag"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
 
 import numpy as np
 
 
-def evaluate(
-    solution, explogger = None
-):
-    
+def evaluate(solution, explogger=None):
+    # first we wait a bit to not hit the Gemini threshold
+    time.sleep(10)
+
     code = solution.solution
     algorithm_name = solution.name
     exec(code, globals())
-
 
     lb, ub = upper_lower_bound()
 
@@ -37,16 +36,21 @@ def evaluate(
     error = ""
     algorithm = None
 
-    def cost_minibragg_wrapper(x):
-        return objective_f(np.array(x))
-
-    wrap_problem(cost_minibragg_wrapper, "cost_minibragg", ioh.ProblemClass.REAL, dimension=dim, instance=0, lb=lb, ub=ub)
+    wrap_problem(
+        objective_f,
+        "cost_minibragg",
+        ioh.ProblemClass.REAL,
+        dimension=dim,
+        instance=0,
+        lb=lb,
+        ub=ub,
+    )
 
     # perform a small run to check for any code errors
     l2_temp = aoc_logger(10, upper=1e2, triggers=[logger.trigger.ALWAYS])
-    problem = get_problem("cost_minibragg")
+    problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2_temp)
-    
+
     try:
         algorithm = globals()[algorithm_name](budget=10, dim=dim)
         algorithm(problem)
@@ -55,18 +59,19 @@ def evaluate(
 
     # last but not least, perform the final validation
     l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
-    problem = get_problem("cost_minibragg")
+    problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2)
-    
+
     try:
         algorithm = globals()[algorithm_name](budget=budget, dim=dim)
-        algorithm(problem)
+        f_opt, x_opt = algorithm(problem)
     except OverBudgetException:
         pass
     auc = correct_aoc(problem, l2, budget)
-    
+
     feedback = f"The algorithm {algorithm_name} got an Area over the convergence curve (AOCC, 1.0 is the best) score of {auc:0.2f}."
-    print(algorithm_name, algorithm, auc)
+    # print(algorithm_name, algorithm, auc)
+    # print(f_opt, x_opt)
 
     solution.set_scores(auc, feedback)
     return solution
@@ -74,9 +79,9 @@ def evaluate(
 
 role_prompt = "You are a highly skilled computer scientist in the field of natural computing. Your task is to design novel metaheuristic algorithms to solve black box optimization problems."
 task_prompt = """
-The optimization algorithm should handle the optimization of a Bragg mirror. We will optimize the thicknesses of a layer-stack of two alterning dielectric materials, in total 10 layers. We want to minimize one minus the reflectance of the layer-stack.
+The optimization algorithm should handle the optimization of a Bragg mirror. We will optimize the thicknesses of a layer-stack of two alterning dielectric materials, in total `dim` layers. We want to minimize one minus the reflectance of the layer-stack.
 Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
-The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between 0.0 (lower bound) and 214.28 (upper bound). The dimensionality is 10.
+The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between 0.0 (lower bound) and 214.28 (upper bound). The dimensionality can be varied.
 An example of such code (a simple random search), is as follows:
 ```python
 import numpy as np
@@ -110,51 +115,46 @@ feedback_prompts = [
 ]
 
 
-#test run
-from scipy.optimize import differential_evolution
+# test run
+if False:
+    from scipy.optimize import differential_evolution
 
-lb, ub = upper_lower_bound()
-bounds = [(lb,ub)] * 10
+    lb, ub = upper_lower_bound()
+    bounds = [(lb, ub)] * 10
 
-def cost_minibragg_wrapper(x):
-    return objective_f(np.array(x))
+    dim = 10
+    wrap_problem(
+        objective_f,
+        "cost_minibragg",
+        ioh.ProblemClass.REAL,
+        dimension=dim,
+        instance=0,
+        lb=lb,
+        ub=ub,
+    )
+    budget = 50000
 
-dim = 10
-wrap_problem(cost_minibragg_wrapper, "cost_minibragg", ioh.ProblemClass.REAL, dimension=dim, instance=0, lb=lb, ub=ub)
+    print("Doing large run")
 
-# perform a small run to check for any code errors
-l2_temp = aoc_logger(10, upper=1e2, triggers=[logger.trigger.ALWAYS])
-problem = get_problem("cost_minibragg")
-problem.attach_logger(l2_temp)
+    # last but not least, perform the final validation
+    l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    problem = get_problem("cost_minibragg", instance=0, dimension=dim)
+    problem.attach_logger(l2)
 
-budget = 50000
-print("Doing small run")
-try:
-    differential_evolution(problem, bounds, maxiter=10000)
-except OverBudgetException:
-    pass
-
-print("Doing large run")
-
-# last but not least, perform the final validation
-l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
-
-problem = get_problem("cost_minibragg")
-problem.attach_logger(l2)
-
-try:
-    differential_evolution(problem, bounds, maxiter=10000)
-except OverBudgetException:
-    pass
-auc = correct_aoc(problem, l2, budget)
-
-a = aaaa
+    try:
+        result = differential_evolution(problem, bounds, maxiter=10000)
+        print(result.x, result.fun)
+    except OverBudgetException:
+        pass
+    auc = correct_aoc(problem, l2, budget)
+    print(auc)
 
 for experiment_i in [1]:
     es = LLaMEA(
         evaluate,
-        n_parents=1,
-        n_offspring=1,
+        n_parents=4,
+        n_offspring=12,
+        budget=250,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
