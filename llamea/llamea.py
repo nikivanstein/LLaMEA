@@ -284,16 +284,12 @@ Space: <configuration_space>"""
         # TODO make a random selection between multiple feedback prompts (mutations)
         num_lines = len(solution.split("\n"))
         print(f"number of lines: {num_lines}")
-        # prob = discrete_power_law_distribution(num_lines, 1.5)
-        prob = 0.02
+        prob = discrete_power_law_distribution(num_lines, 1.5)
+        # prob = 0.05
         mutation_operator = f"""
 Now, refine the strategy of the selected solution to improve it. Make sure you 
-only change {(prob*100):.1f}% of the code, which means if the code has 100 lines, you 
-can only change {prob*100} lines, and the rest lines should remain the same. For 
-this code, it has {num_lines} lines, so you can only change {max(1, int(prob*num_lines))}
-lines, the rest {num_lines-max(1, int(prob*num_lines))} lines should remain the same. 
-This changing rate {(prob*100):.1f}% is the mandatory requirement, you cannot change 
-more or less than this rate.
+only change {(prob*100):.1f}% of the code. This changing rate {(prob*100):.1f}% is the 
+mandatory requirement.
 """
         # mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)
