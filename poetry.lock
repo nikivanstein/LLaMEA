@@ -3574,6 +3574,22 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "pymoosh"
+version = "3.2"
+description = "A scattering matrix formalism to solve Maxwell's equations in a multilayered structure."
+optional = false
+python-versions = "*"
+files = [
+    {file = "PyMoosh-3.2-py3-none-any.whl", hash = "sha256:c1a587242b637b4b50b982cf05775485937125954566da1e2f108513a7a8159d"},
+    {file = "PyMoosh-3.2.tar.gz", hash = "sha256:d431c371d4470700c1f295fa125b27b2a12878417d9290d8e4e19b6f5044ec53"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+numpy = "*"
+scipy = "*"
+
+[[package]]
 name = "pynisher"
 version = "1.0.10"
 description = "A library to limit the resources used by functions using subprocesses"
@@ -5030,4 +5046,4 @@ six = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f237e4259b69eb3cb4631d01d81aa634339a2a2279b9f73b1cc2dbe8b8141445"
+content-hash = "6d00a56f9cb32ce4306cea95355e6648e93c93ec4c34950eb99d5d268e760c34"

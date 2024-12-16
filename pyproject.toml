@@ -46,6 +46,10 @@ pytest-cov = "^4.1.0"
 codecov = "^2.1.13"
 pytest-mock = "^3.14.0"
 
+
+[tool.poetry.group.benchmarks.dependencies]
+pymoosh = "3.2"
+
 [build-system]
 requires = ["poetry-core>=1.2.0"]
 build-backend = "poetry.core.masonry.api"
