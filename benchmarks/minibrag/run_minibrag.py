@@ -20,6 +20,7 @@ if "gemini" in ai_model:
 
 import numpy as np
 
+log_folder = ""
 
 def evaluate(solution, explogger=None):
     # first we wait a bit to not hit the Gemini threshold
@@ -47,7 +48,7 @@ def evaluate(solution, explogger=None):
     )
 
     # perform a small run to check for any code errors
-    l2_temp = aoc_logger(10, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    l2_temp = aoc_logger(10, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS])
     problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2_temp)
 
@@ -58,7 +59,15 @@ def evaluate(solution, explogger=None):
         pass
 
     # last but not least, perform the final validation
-    l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    # l1 = ioh.logger.Analyzer(
+    #     root=f"{log_folder}/ioh",
+    #     folder_name=f"LLaMEA",
+    #     algorithm_name=algorithm_name,
+    # )
+    l2 = aoc_logger(budget, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS])
+    #combined_logger = ioh.logger.Combine([l1,l2])
+
+
     problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2)
 
@@ -155,6 +164,7 @@ for experiment_i in [1]:
         n_parents=4,
         n_offspring=12,
         budget=250,
+        eval_timeout=120,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
@@ -164,4 +174,5 @@ for experiment_i in [1]:
         elitism=True,
         HPO=False,
     )
+    log_folder = es.logger.dirname
     print(es.run())

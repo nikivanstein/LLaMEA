@@ -10,8 +10,7 @@ import traceback
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
-from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
+from joblib import Parallel, delayed
 
 from .ast import analyze_run
 from .individual import Individual
@@ -22,7 +21,8 @@ from .utils import NoCodeException, handle_timeout
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
 
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+                    
 class LLaMEA:
     """
     A class that represents the Language Model powered Evolutionary Algorithm (LLaMEA).
@@ -45,6 +45,7 @@ class LLaMEA:
         budget=100,
         model="gpt-4-turbo",
         eval_timeout=3600,
+        max_workers=10,
         log=True,
         minimization=False,
         _random=False,
@@ -151,50 +152,53 @@ Provide the Python code, a one-line description with the main idea (without ente
         else:
             self.logger = None
         self.textlog = logging.getLogger(__name__)
+        if max_workers > self.n_offspring:
+            max_workers = self.n_offspring
+        self.max_workers = max_workers
 
     def logevent(self, event):
-        with logging_redirect_tqdm():
-            self.textlog.info(event)
+        self.textlog.info(event)
+
+    def initialize_single(self):
+        """
+        Initializes a single solution.
+        """
+        new_individual = Individual("", "", "", None, self.generation, None)
+        session_messages = [
+            {
+                "role": "user",
+                "content": self.role_prompt
+                + self.task_prompt
+                + self.output_format_prompt,
+            },
+        ]
+        try:
+            new_individual = self.llm(session_messages)
+            new_individual = self.evaluate_fitness(new_individual)
+        except NoCodeException:
+            new_individual.set_scores(self.worst_value, "No code was extracted.")
+        except Exception as e:
+            new_individual.set_scores(
+                self.worst_value,
+                f"An exception occured: {traceback.format_exc()}.",
+                repr(e) + traceback.format_exc(),
+            )
+            self.textlog.warning(new_individual.error)
+
+        self.run_history.append(new_individual)  # update the history
+        return new_individual
 
     def initialize(self):
         """
         Initializes the evolutionary process by generating the first parent population.
         """
 
-        def initialize_single():
-            """
-            Initializes a single solution.
-            """
-            new_individual = Individual("", "", "", None, self.generation, None)
-            session_messages = [
-                {
-                    "role": "user",
-                    "content": self.role_prompt
-                    + self.task_prompt
-                    + self.output_format_prompt,
-                },
-            ]
-            try:
-                new_individual = self.llm(session_messages)
-                new_individual = self.evaluate_fitness(new_individual)
-            except NoCodeException:
-                new_individual.set_scores(self.worst_value, "No code was extracted.")
-            except Exception as e:
-                new_individual.set_scores(
-                    self.worst_value,
-                    f"An exception occured: {traceback.format_exc()}.",
-                    repr(e) + traceback.format_exc(),
-                )
-                self.textlog.warning(new_individual.error)
-
-            self.run_history.append(new_individual)  # update the history
-            self.progress_bar.update(1)
-            return new_individual
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            population = list(
-                executor.map(lambda _: initialize_single(), range(self.n_parents))
-            )
+        population = []
+        try:
+            timeout = self.eval_timeout * (self.n_offspring / self.max_workers)
+            population = Parallel(n_jobs=self.max_workers, timeout=timeout+15)(delayed(self.initialize_single)() for _ in range(self.n_parents))
+        except Exception as e:
+            print("Parallel time out in initialization.")
 
         self.generation += 1
         self.population = population  # Save the entire population
@@ -251,6 +255,11 @@ Provide the Python code, a one-line description with the main idea (without ente
         """
         # Implement fitness evaluation and error handling logic.
         updated_individual = self.f(individual, self.logger)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(self.f, individual)
+            updated_individual = future.result(timeout=self.eval_timeout)
+            future.cancel()
 
         return updated_individual
 
@@ -402,8 +411,35 @@ With code:
             return match.group(1)
         else:
             return ""
+        
+    def evolve_solution(self, individual):
+        """
+        Evolves a single solution by constructing a new prompt,
+        querying the LLM, and evaluating the fitness.
+        """
+        new_prompt = self.construct_prompt(individual)
+        evolved_individual = individual.copy()
 
-    def run(self, max_workers=10):
+        try:
+            evolved_individual = self.llm(new_prompt, evolved_individual.parent_id)
+            evolved_individual = self.evaluate_fitness(evolved_individual)
+        except NoCodeException:
+            evolved_individual.set_scores(
+                self.worst_value,
+                "No code was extracted. The code should be encapsulated with ``` in your response.",
+                "The code should be encapsulated with ``` in your response.",
+            )
+        except Exception as e:
+            error = repr(e)
+            evolved_individual.set_scores(
+                self.worst_value, f"An exception occurred: {error}.", error
+            )
+
+        self.run_history.append(evolved_individual)
+        #self.progress_bar.update(1)
+        return evolved_individual
+
+    def run(self):
         """
         Main loop to evolve the solutions until the evolutionary budget is exhausted.
         The method iteratively refines solutions through interaction with the language model,
@@ -412,38 +448,14 @@ With code:
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
-        self.progress_bar = tqdm(total=self.budget)
+        #self.progress_bar = tqdm(total=self.budget)
+        self.logevent("Initializing first population")
         self.initialize()  # Initialize a population
+        #self.progress_bar.update(self.n_parents)
 
         if self.log:
             self.logger.log_population(self.population)
 
-        def evolve_solution(individual):
-            """
-            Evolves a single solution by constructing a new prompt,
-            querying the LLM, and evaluating the fitness.
-            """
-            new_prompt = self.construct_prompt(individual)
-            evolved_individual = individual.copy()
-
-            try:
-                evolved_individual = self.llm(new_prompt, evolved_individual.parent_id)
-                evolved_individual = self.evaluate_fitness(evolved_individual)
-            except NoCodeException:
-                evolved_individual.set_scores(
-                    self.worst_value,
-                    "No code was extracted. The code should be encapsulated with ``` in your response.",
-                    "The code should be encapsulated with ``` in your response.",
-                )
-            except Exception as e:
-                error = repr(e)
-                evolved_individual.set_scores(
-                    self.worst_value, f"An exception occurred: {error}.", error
-                )
-
-            self.run_history.append(evolved_individual)
-            self.progress_bar.update(1)
-            return evolved_individual
 
         self.logevent(
             f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
@@ -455,36 +467,11 @@ With code:
             )
 
             new_population = []
-            # Use ThreadPoolExecutor for parallel evolution of solutions
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max_workers
-            ) as executor:
-                # new_population = list(executor.map(evolve_solution, new_offspring_population))
-
-                future_to_offspring = {
-                    executor.submit(evolve_solution, offspring): offspring
-                    for offspring in new_offspring_population
-                }
-                try:
-                    for future in concurrent.futures.as_completed(
-                        future_to_offspring,
-                        timeout=self.eval_timeout * (max_workers / max_workers),
-                    ):
-                        try:
-                            result = future.result(
-                                timeout=self.eval_timeout
-                            )  # Apply timeout for each future result
-                            new_population.append(result)
-                        except concurrent.futures.TimeoutError:
-                            self.textlog.warning(
-                                "Timeout occurred for one of the solutions"
-                            )
-                except concurrent.futures.TimeoutError:
-                    self.textlog.warning(
-                        "Timeout occurred for the as_completed event, pop count:"
-                        + str(len(new_population))
-                    )
-                    executor.shutdown(False)  # stop tasks that took too long
+            try:
+                timeout = self.eval_timeout * (self.n_offspring / self.max_workers)
+                new_population = Parallel(n_jobs=self.max_workers, timeout=timeout+15)(delayed(self.evolve_solution)(individual) for individual in new_offspring_population)
+            except Exception as e:
+                print("Parallel time out .")
 
             self.generation += 1
 
