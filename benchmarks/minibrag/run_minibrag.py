@@ -22,6 +22,7 @@ import numpy as np
 
 log_folder = ""
 
+
 def evaluate(solution, explogger=None):
     # first we wait a bit to not hit the Gemini threshold
     time.sleep(10)
@@ -48,7 +49,9 @@ def evaluate(solution, explogger=None):
     )
 
     # perform a small run to check for any code errors
-    l2_temp = aoc_logger(10, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS])
+    l2_temp = aoc_logger(
+        10, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS]
+    )
     problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2_temp)
 
@@ -64,9 +67,10 @@ def evaluate(solution, explogger=None):
     #     folder_name=f"LLaMEA",
     #     algorithm_name=algorithm_name,
     # )
-    l2 = aoc_logger(budget, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS])
-    #combined_logger = ioh.logger.Combine([l1,l2])
-
+    l2 = aoc_logger(
+        budget, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS]
+    )
+    # combined_logger = ioh.logger.Combine([l1,l2])
 
     problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2)

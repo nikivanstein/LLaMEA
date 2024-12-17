@@ -3,7 +3,13 @@ import numpy as np
 from ioh import get_problem, wrap_problem, logger
 import ioh
 import re
-from misc import aoc_logger, correct_aoc, OverBudgetException, budget_logger, ThresholdReachedException
+from misc import (
+    aoc_logger,
+    correct_aoc,
+    OverBudgetException,
+    budget_logger,
+    ThresholdReachedException,
+)
 from llamea import LLaMEA
 from llamea.individual import Individual
 from benchmarks.LLMdesignedEA.GNBG.GNBG_instances import load_problem
@@ -15,6 +21,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+
 @contextmanager
 def time_it() -> Iterator[None]:
     tic: float = time.perf_counter()
@@ -24,9 +31,10 @@ def time_it() -> Iterator[None]:
         toc: float = time.perf_counter()
         print(f"Computation time = {1000*(toc - tic):.3f}ms")
 
+
 # Execution code starts here
 api_key = os.getenv("OPENAI_API_KEY")
-ai_model = "gpt-4o-2024-08-06"#"gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
+ai_model = "gpt-4o-2024-08-06"  # "gpt-4o-2024-05-13"  # gpt-4-turbo or gpt-3.5-turbo gpt-4o llama3:70b gpt-4o-2024-05-13, gemini-1.5-flash gpt-4-turbo-2024-04-09
 experiment_name = "competition"
 if "gemini" in ai_model:
     api_key = os.environ["GEMINI_API_KEY"]
@@ -43,31 +51,43 @@ from functools import partial
 
 
 def calculate_objective(intance, dim):
-    #print(dim, intance)
+    # print(dim, intance)
     gnbg = load_problem(intance, 0)
-    #print(gnbg.OptimumPosition.flatten().tolist())
+    # print(gnbg.OptimumPosition.flatten().tolist())
     return gnbg.OptimumPosition.flatten().tolist(), 0.0
 
 
 def run_single_problem(fid, seed, algorithm_name, all_auc, all_f, all_x):
-
     gnbg = load_problem(fid, seed)
     dim = gnbg.Dimension
     budget = gnbg.MaxEvals
 
-    wrap_problem(lambda x: gnbg.fitness(x) - gnbg.OptimumValue, f"gnbg{fid}",
-                    ioh.ProblemClass.REAL, lb=-100, ub=100,
-                    dimension=dim, instance=fid, calculate_objective=calculate_objective)
+    wrap_problem(
+        lambda x: gnbg.fitness(x) - gnbg.OptimumValue,
+        f"gnbg{fid}",
+        ioh.ProblemClass.REAL,
+        lb=-100,
+        ub=100,
+        dimension=dim,
+        instance=fid,
+        calculate_objective=calculate_objective,
+    )
 
-    problem = get_problem(f"gnbg{fid}", dimension=dim, instance=fid, problem_class=ioh.ProblemClass.REAL)
+    problem = get_problem(
+        f"gnbg{fid}", dimension=dim, instance=fid, problem_class=ioh.ProblemClass.REAL
+    )
 
-    bl = aoc_logger(budget, upper=1e6, lower=1e-8, stop_on_threshold=True, triggers=[logger.trigger.ALWAYS])
+    bl = aoc_logger(
+        budget,
+        upper=1e6,
+        lower=1e-8,
+        stop_on_threshold=True,
+        triggers=[logger.trigger.ALWAYS],
+    )
     problem.attach_logger(bl)
 
     try:
-        algorithm = globals()[algorithm_name](
-            budget=budget, dim=dim
-        )
+        algorithm = globals()[algorithm_name](budget=budget, dim=dim)
         algorithm(problem)
     except OverBudgetException:
         pass
@@ -85,14 +105,10 @@ def run_single_problem(fid, seed, algorithm_name, all_auc, all_f, all_x):
     problem.reset()
 
 
-
-def evaluateWithHPO(
-    solution, explogger = None
-):
+def evaluateWithHPO(solution, explogger=None):
     code = solution.solution
     algorithm_name = solution.name
     exec(code, globals())
-
 
     error = ""
     algorithm = None
@@ -103,24 +119,40 @@ def evaluateWithHPO(
         all_x = []
         all_auc = []
         for seed in range(1):
-            for fid in range(1,25):
+            for fid in range(1, 25):
                 gnbg = load_problem(fid, seed)
                 dim = gnbg.Dimension
                 budget = gnbg.MaxEvals
 
-                wrap_problem(lambda x: gnbg.fitness(x) - gnbg.OptimumValue, f"gnbg{fid}",
-                                ioh.ProblemClass.REAL, lb=-100, ub=100,
-                                dimension=dim, instance=fid, calculate_objective=calculate_objective)
+                wrap_problem(
+                    lambda x: gnbg.fitness(x) - gnbg.OptimumValue,
+                    f"gnbg{fid}",
+                    ioh.ProblemClass.REAL,
+                    lb=-100,
+                    ub=100,
+                    dimension=dim,
+                    instance=fid,
+                    calculate_objective=calculate_objective,
+                )
 
-                problem = get_problem(f"gnbg{fid}", dimension=dim, instance=fid, problem_class=ioh.ProblemClass.REAL)
+                problem = get_problem(
+                    f"gnbg{fid}",
+                    dimension=dim,
+                    instance=fid,
+                    problem_class=ioh.ProblemClass.REAL,
+                )
 
-                bl = aoc_logger(budget, upper=1e6, lower=1e-8, stop_on_threshold=True, triggers=[logger.trigger.ALWAYS])
+                bl = aoc_logger(
+                    budget,
+                    upper=1e6,
+                    lower=1e-8,
+                    stop_on_threshold=True,
+                    triggers=[logger.trigger.ALWAYS],
+                )
                 problem.attach_logger(bl)
 
                 try:
-                    algorithm = globals()[algorithm_name](
-                        budget=budget, dim=dim
-                    )
+                    algorithm = globals()[algorithm_name](budget=budget, dim=dim)
                     algorithm(problem)
                 except OverBudgetException:
                     pass
@@ -137,12 +169,10 @@ def evaluateWithHPO(
                 bl.reset(problem)
                 problem.reset()
 
-
         return all_auc, all_f, all_x
 
-
     # last but not least, perform the final validation
-    
+
     all_auc, all_f, all_x = get_fitness_all()
     final_f = np.mean(all_auc)
 
@@ -153,7 +183,7 @@ def evaluateWithHPO(
     solution.add_metadata("all_f", all_f)
     solution.add_metadata("all_x", all_x)
     solution.set_scores(final_f, feedback)
-    
+
     return solution
 
 
@@ -195,35 +225,49 @@ feedback_prompts = [
 
 
 if False:
-
     # first test the code
     # now optimize the hyper-parameters
     with time_it():
-        for fid in range(1,25):
-            
-
+        for fid in range(1, 25):
             gnbg = load_problem(fid, 0)
             dim = gnbg.Dimension
             print(dim)
             budget = gnbg.MaxEvals
             print(budget)
 
+            wrap_problem(
+                lambda x: gnbg.fitness(x) - gnbg.OptimumValue,
+                f"gnbg{fid}",
+                ioh.ProblemClass.REAL,
+                lb=-100,
+                ub=100,
+                dimension=dim,
+                instance=fid,
+                calculate_objective=calculate_objective,
+            )
 
-            wrap_problem(lambda x: gnbg.fitness(x) - gnbg.OptimumValue, f"gnbg{fid}",
-                    ioh.ProblemClass.REAL, lb=-100, ub=100,
-                    dimension=dim, instance=fid, calculate_objective=calculate_objective)
-            
-            problem = get_problem(f"gnbg{fid}", dimension=dim, instance=fid, problem_class=ioh.ProblemClass.REAL)
+            problem = get_problem(
+                f"gnbg{fid}",
+                dimension=dim,
+                instance=fid,
+                problem_class=ioh.ProblemClass.REAL,
+            )
             print(problem)
 
-            lb = -100*np.ones(dim)
-            ub = 100*np.ones(dim)
+            lb = -100 * np.ones(dim)
+            ub = 100 * np.ones(dim)
             bounds = []
-            for i in range(0,dim):
-                bounds.append(tuple((lb[i],ub[i])))
+            for i in range(0, dim):
+                bounds.append(tuple((lb[i], ub[i])))
 
-            bl = aoc_logger(budget, upper=1e6, lower=1e-8, stop_on_threshold=True, triggers=[logger.trigger.ALWAYS])
-            #bl = budget_logger(budget, triggers=[logger.trigger.ALWAYS])
+            bl = aoc_logger(
+                budget,
+                upper=1e6,
+                lower=1e-8,
+                stop_on_threshold=True,
+                triggers=[logger.trigger.ALWAYS],
+            )
+            # bl = budget_logger(budget, triggers=[logger.trigger.ALWAYS])
             problem.attach_logger(bl)
 
             # Instantate a modules object
@@ -255,26 +299,25 @@ if False:
             OptimumValue = gnbg.OptimumValue
 
             convergence = []
-            best_error = float('inf')
+            best_error = float("inf")
             for value in gnbg.FEhistory:
                 error = abs(value - OptimumValue)
                 if error < best_error:
                     best_error = error
                 convergence.append(best_error)
-            
+
             bl.reset(problem)
             problem.reset()
 
             # Plotting the convergence
             plt.plot(range(1, len(convergence) + 1), convergence)
-            plt.xlabel('Function Evaluation Number (FE)')
-            plt.ylabel('Error')
-            plt.title('Convergence Plot')
-            plt.yscale('log')  # Set y-axis to logarithmic scale
+            plt.xlabel("Function Evaluation Number (FE)")
+            plt.ylabel("Error")
+            plt.title("Convergence Plot")
+            plt.yscale("log")  # Set y-axis to logarithmic scale
             plt.savefig(f"convergence_gnbg_{fid}.png")
             plt.clf()
 else:
-    
     for experiment_i in [1]:
         es = LLaMEA(
             evaluateWithHPO,

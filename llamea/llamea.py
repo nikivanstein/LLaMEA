@@ -21,8 +21,13 @@ from .utils import NoCodeException, handle_timeout
 # TODOs:
 # Implement diversity selection mechanisms (none, prefer short code, update population only when (distribution of) results is different, AST / code difference)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-                    
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+
 class LLaMEA:
     """
     A class that represents the Language Model powered Evolutionary Algorithm (LLaMEA).
@@ -196,7 +201,9 @@ Provide the Python code, a one-line description with the main idea (without ente
         population = []
         try:
             timeout = self.eval_timeout * (self.n_offspring / self.max_workers)
-            population = Parallel(n_jobs=self.max_workers, timeout=timeout+15)(delayed(self.initialize_single)() for _ in range(self.n_parents))
+            population = Parallel(n_jobs=self.max_workers, timeout=timeout + 15)(
+                delayed(self.initialize_single)() for _ in range(self.n_parents)
+            )
         except Exception as e:
             print("Parallel time out in initialization.")
 
@@ -411,7 +418,7 @@ With code:
             return match.group(1)
         else:
             return ""
-        
+
     def evolve_solution(self, individual):
         """
         Evolves a single solution by constructing a new prompt,
@@ -436,7 +443,7 @@ With code:
             )
 
         self.run_history.append(evolved_individual)
-        #self.progress_bar.update(1)
+        # self.progress_bar.update(1)
         return evolved_individual
 
     def run(self):
@@ -448,14 +455,13 @@ With code:
         Returns:
             tuple: A tuple containing the best solution and its fitness at the end of the evolutionary process.
         """
-        #self.progress_bar = tqdm(total=self.budget)
+        # self.progress_bar = tqdm(total=self.budget)
         self.logevent("Initializing first population")
         self.initialize()  # Initialize a population
-        #self.progress_bar.update(self.n_parents)
+        # self.progress_bar.update(self.n_parents)
 
         if self.log:
             self.logger.log_population(self.population)
-
 
         self.logevent(
             f"Started evolutionary loop, best so far: {self.best_so_far.fitness}"
@@ -469,7 +475,12 @@ With code:
             new_population = []
             try:
                 timeout = self.eval_timeout * (self.n_offspring / self.max_workers)
-                new_population = Parallel(n_jobs=self.max_workers, timeout=timeout+15)(delayed(self.evolve_solution)(individual) for individual in new_offspring_population)
+                new_population = Parallel(
+                    n_jobs=self.max_workers, timeout=timeout + 15
+                )(
+                    delayed(self.evolve_solution)(individual)
+                    for individual in new_offspring_population
+                )
             except Exception as e:
                 print("Parallel time out .")
 
