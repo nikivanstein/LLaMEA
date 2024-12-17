@@ -20,6 +20,8 @@ if "gemini" in ai_model:
 
 import numpy as np
 
+log_folder = ""
+
 
 def evaluate(solution, explogger=None):
     # first we wait a bit to not hit the Gemini threshold
@@ -47,7 +49,9 @@ def evaluate(solution, explogger=None):
     )
 
     # perform a small run to check for any code errors
-    l2_temp = aoc_logger(10, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    l2_temp = aoc_logger(
+        10, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS]
+    )
     problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2_temp)
 
@@ -58,7 +62,16 @@ def evaluate(solution, explogger=None):
         pass
 
     # last but not least, perform the final validation
-    l2 = aoc_logger(budget, upper=1e2, triggers=[logger.trigger.ALWAYS])
+    # l1 = ioh.logger.Analyzer(
+    #     root=f"{log_folder}/ioh",
+    #     folder_name=f"LLaMEA",
+    #     algorithm_name=algorithm_name,
+    # )
+    l2 = aoc_logger(
+        budget, upper=1.0, lower=0.15, scale_log=True, triggers=[logger.trigger.ALWAYS]
+    )
+    #combined_logger = ioh.logger.Combine([l1,l2])
+
     problem = get_problem("cost_minibragg", instance=0, dimension=dim)
     problem.attach_logger(l2)
 
@@ -81,6 +94,7 @@ role_prompt = "You are a highly skilled computer scientist in the field of natur
 task_prompt = """
 The optimization algorithm should handle the optimization of a Bragg mirror. We will optimize the thicknesses of a layer-stack of two alterning dielectric materials, in total `dim` layers. We want to minimize one minus the reflectance of the layer-stack.
 Your task is to write the optimization algorithm in Python code. The code should contain an `__init__(self, budget, dim)` function and the function `def __call__(self, func)`, which should optimize the black box function `func` using `self.budget` function evaluations.
+The budget is typically set at 10000+, so do not use any gaussian process surrogate models as that would cause too long optimization runs.
 The func() can only be called as many times as the budget allows, not more. Each of the optimization functions has a search space between 0.0 (lower bound) and 214.28 (upper bound). The dimensionality can be varied.
 An example of such code (a simple random search), is as follows:
 ```python
@@ -155,6 +169,7 @@ for experiment_i in [1]:
         n_parents=4,
         n_offspring=12,
         budget=250,
+        eval_timeout=360,
         role_prompt=role_prompt,
         task_prompt=task_prompt,
         mutation_prompts=feedback_prompts,
@@ -164,4 +179,5 @@ for experiment_i in [1]:
         elitism=True,
         HPO=False,
     )
+    log_folder = es.logger.dirname
     print(es.run())
