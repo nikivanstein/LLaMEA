@@ -7,7 +7,7 @@ import logging
 import random
 import re
 import traceback
-
+import os, contextlib
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from joblib import Parallel, delayed
@@ -200,15 +200,17 @@ Provide the Python code, a one-line description with the main idea (without ente
 
         population = []
         try:
-            timeout = self.eval_timeout * (self.n_offspring / self.max_workers)
-            population = Parallel(n_jobs=self.max_workers, timeout=timeout + 15)(
-                delayed(self.initialize_single)() for _ in range(self.n_parents)
-            )
+            timeout = self.eval_timeout
+            population_gen = Parallel(
+                n_jobs=self.max_workers,
+                timeout=timeout + 15,
+                return_as="generator_unordered",
+            )(delayed(self.initialize_single)() for _ in range(self.n_parents))
         except Exception as e:
-            if retry < 3:
-                self.initialize(retry + 1)
-                print("Parallel time out in initialization, retrying.")
-                return
+            print("Parallel time out in initialization, retrying.")
+
+        for p in population_gen:
+            population.append(p)
 
         self.generation += 1
         self.population = population  # Save the entire population
@@ -263,10 +265,8 @@ Provide the Python code, a one-line description with the main idea (without ente
         Returns:
             tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(self.f, individual, self.logger)
-            updated_individual = future.result(timeout=self.eval_timeout)
-            future.cancel()
+        with contextlib.redirect_stdout(None):
+            updated_individual = self.f(individual, self.logger)
 
         return updated_individual
 
@@ -474,9 +474,11 @@ With code:
 
             new_population = []
             try:
-                timeout = self.eval_timeout * (self.n_offspring / self.max_workers)
-                new_population = Parallel(
-                    n_jobs=self.max_workers, timeout=timeout + 15
+                timeout = self.eval_timeout
+                new_population_gen = Parallel(
+                    n_jobs=self.max_workers,
+                    timeout=timeout + 15,
+                    return_as="generator_unordered",
                 )(
                     delayed(self.evolve_solution)(individual)
                     for individual in new_offspring_population
@@ -484,6 +486,8 @@ With code:
             except Exception as e:
                 print("Parallel time out .")
 
+            for p in new_population_gen:
+                new_population.append(p)
             self.generation += 1
 
             if self.log:
