@@ -193,7 +193,7 @@ Provide the Python code, a one-line description with the main idea (without ente
         self.run_history.append(new_individual)  # update the history
         return new_individual
 
-    def initialize(self):
+    def initialize(self, retry=0):
         """
         Initializes the evolutionary process by generating the first parent population.
         """
@@ -205,7 +205,10 @@ Provide the Python code, a one-line description with the main idea (without ente
                 delayed(self.initialize_single)() for _ in range(self.n_parents)
             )
         except Exception as e:
-            print("Parallel time out in initialization.")
+            if retry < 3:
+                self.initialize(retry + 1)
+                print("Parallel time out in initialization, retrying.")
+                return
 
         self.generation += 1
         self.population = population  # Save the entire population
@@ -260,11 +263,8 @@ Provide the Python code, a one-line description with the main idea (without ente
         Returns:
             tuple: Updated individual with "_feedback", "_fitness" (float), and "_error" (string) filled.
         """
-        # Implement fitness evaluation and error handling logic.
-        updated_individual = self.f(individual, self.logger)
-
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(self.f, individual)
+            future = executor.submit(self.f, individual, self.logger)
             updated_individual = future.result(timeout=self.eval_timeout)
             future.cancel()
 
@@ -495,7 +495,6 @@ With code:
             self.logevent(
                 f"Generation {self.generation}, best so far: {self.best_so_far.fitness}"
             )
-        self.progress_bar.close()
         if self.log:
             try:
                 analyze_run(self.logger.dirname, self.budget, self.experiment_name)
