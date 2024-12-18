@@ -287,9 +287,12 @@ Space: <configuration_space>"""
         prob = discrete_power_law_distribution(num_lines, 1.5)
         # prob = 0.05
         mutation_operator = f"""
-Now, refine the strategy of the selected solution to improve it. Make sure you 
-only change {(prob*100):.1f}% of the code. This changing rate {(prob*100):.1f}% is the 
-mandatory requirement.
+Modify the optimization algorithm code to improve its performance in terms of 
+convergence speed. The modification should result in a code difference of 
+exactly {(prob*100):.1f}%. Ensure that the changes are meaningful to enhance 
+optimization speed without focusing on code efficiency or readability 
+improvements. Explore any strategy within the algorithm to achieve this, 
+but keep the difference precisely at the specified percentage.
 """
         # mutation_operator = random.choice(self.mutation_prompts)
         individual.set_mutation_prompt(mutation_operator)

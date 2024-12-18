@@ -88,15 +88,15 @@ if __name__ == "__main__":
                   'dashdot', 'dashdot', 'dashdot']
 
     models = ["gpt-3.5-turbo", "gpt-4o"]
-    mutations = [f"exp{i}" for i in range(1, 4)]
+    mutations = [f"exp{i}" for i in range(1, 3)]
     for model in models:
         exp_dirs = []
         labels = []
         for mutation in mutations:
             folders = os.listdir(
-                f"/scratch/hyin/LLaMEA/exp-{model}-{mutation}")
+                f"exp_data/CAI/rerun/exp-{model}-{mutation}")
             exp_dirs += [
-                [f"/scratch/hyin/LLaMEA/exp-{model}-{mutation}/{f}" for f in folders if f.startswith("exp")]]
+                [f"exp_data/CAI/rerun/exp-{model}-{mutation}/{f}" for f in folders if f.startswith("exp")]]
             labels += [f"{mutation}"]
         plot_aucs(exp_dirs, colors, labels, linestyles, model)
         plot_aucs(exp_dirs, colors, labels, linestyles, model, aocc=True)

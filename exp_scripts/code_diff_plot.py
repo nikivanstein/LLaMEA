@@ -307,10 +307,10 @@ def convergence_plot():
                              std_aucs, color=colors[i], alpha=0.2)
             plt.xlim(0, 100)
             i += 1
-        plt.ylim(0, 0.44)
+        plt.ylim(0, 0.5)
         plt.xlabel("Iterations")
         plt.ylabel("mean AOCC")
-        plt.legend()
+        plt.legend(loc="lower right")
         plt.tight_layout()
         plt.savefig(f"results/convergence_{model}.png")
         plt.clf()
@@ -429,8 +429,8 @@ if __name__ == "__main__":
     models = [f"prompt{i}_{m}" for m in ["gpt-3.5-turbo", "gpt-4o"]
               for i in range(1, 12)]
     mutations = ["beta1.5", "2"] + [str(i*5) for i in range(1, 11)]
-    df_values = []
-    print("Building data...")
+    # df_values = []
+    # print("Building data...")
     # for model in models:
     #     prompt = model.split("_")[0]
     #     llm = model.split("_")[1]
@@ -451,15 +451,15 @@ if __name__ == "__main__":
     # df = pd.DataFrame(df_values, columns=[
     #                   "model", "prompt", "Mutation", "Code Difference"])
     # df.to_csv("results/code_diff/code_diff.csv")
-    df = pd.read_csv("results/code_diff/code_diff.csv")
-    print("Saving MSE table...")
-    save_MSE_table(df.copy())
-    print("Plotting aggregation...")
-    aggregate_plot(df.copy())
+    # df = pd.read_csv("results/code_diff/code_diff.csv")
+    # print("Saving MSE table...")
+    # save_MSE_table(df.copy())
+    # print("Plotting aggregation...")
+    # aggregate_plot(df.copy())
     print("Plotting convergence...")
     convergence_plot()
-    print("Plotting code difference...")
-    code_difference_plot()
+    # print("Plotting code difference...")
+    # code_difference_plot()
     # for llm in ["gpt-3.5-turbo", "gpt-4o"]:
     #     for prompt in [f"prompt{i}" for i in range(1, 12)]:
     #         df_temp = df[(df["model"] == llm) & (df["prompt"] == prompt)]
