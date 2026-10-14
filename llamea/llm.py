@@ -25,6 +25,12 @@ try:
     import openai
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     openai = None
+
+try:
+    import anthropic
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    anthropic = None
+
 try:
     import lmstudio as lms
 except ModuleNotFoundError:
@@ -553,6 +559,101 @@ class DeepSeek_LLM(OpenAI_LLM):
         self.base_url = "https://api.deepseek.com"
         self._client_kwargs["base_url"] = self.base_url
         self.client = openai.OpenAI(**self._client_kwargs)
+
+
+class Anthropic_LLM(LLM):
+    """
+    A manager class for handling requests to Anthropic's Claude models.
+    """
+
+    def __init__(
+        self,
+        api_key,
+        model="claude-sonnet-5-5",
+        temperature=0.8,
+        max_tokens=16000,
+        max_retries=5,
+        **kwargs,
+    ):
+        """
+        Initializes the LLM manager with an API key and model name.
+
+        Args:
+            api_key (str): api key for authentication.
+            model (str, optional): model abbreviation. Defaults to "claude-sonnet-5-5".
+                Options are: claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, and others from Anthropic's models library.
+            temperature (float, optional): sampling temperature. Defaults to 0.8.
+            max_tokens (int, optional): maximum number of output tokens per response. Defaults to 16000.
+            max_retries (int, optional): retries on rate limits, timeouts and server errors,
+                handled with exponential backoff by the anthropic SDK. Defaults to 5.
+        """
+        if anthropic is None:  # pragma: no cover - optional dependency
+            raise ImportError(
+                "anthropic is required to use Anthropic_LLM. Install the 'anthropic' package."
+            )
+        super().__init__(api_key, model, None, **kwargs)
+        self._client_kwargs = dict(api_key=api_key, max_retries=max_retries)
+        self.client = anthropic.Anthropic(**self._client_kwargs)
+        logging.getLogger("anthropic").setLevel(logging.ERROR)
+        logging.getLogger("httpx").setLevel(logging.ERROR)
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+    def query(self, session_messages):
+        """
+        Sends a conversation history to the configured model and returns the response text.
+
+        Args:
+            session_messages (list of dict): A list of message dictionaries with keys
+                "role" (e.g. "user", "assistant") and "content" (the message text).
+
+        Returns:
+            str: The text content of the LLM's response.
+        """
+        # Anthropic takes the system prompt as a separate parameter, not as a message.
+        system = "\n".join(
+            m["content"] for m in session_messages if m["role"] == "system"
+        )
+        messages = [
+            {"role": m["role"], "content": m["content"]}
+            for m in session_messages
+            if m["role"] != "system"
+        ]
+        request = dict(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            messages=messages,
+        )
+        if system:
+            request["system"] = system
+
+        response = self.client.messages.create(**request)
+        return "".join(block.text for block in response.content if block.type == "text")
+
+    # ---------- pickling / deepcopy helpers ----------
+    def __getstate__(self):
+        """Return the picklable part of the instance."""
+        state = self.__dict__.copy()
+        state.pop("client", None)  # the client itself is NOT picklable
+        return state
+
+    def __setstate__(self, state):
+        """Restore from a pickled state."""
+        self.__dict__.update(state)
+        self.client = anthropic.Anthropic(**self._client_kwargs)
+
+    def __deepcopy__(self, memo):
+        """Explicit deepcopy that skips the client and recreates it."""
+        cls = self.__class__
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        for k, v in self.__dict__.items():
+            if k == "client":
+                continue
+            setattr(new, k, copy.deepcopy(v, memo))
+        new.client = anthropic.Anthropic(**new._client_kwargs)
+        return new
 
 
 class LMStudio_LLM(LLM):
