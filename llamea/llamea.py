@@ -8,22 +8,30 @@ import contextlib
 import logging
 import math
 import os
+import pickle
 import random
 import re
-import traceback
 import textwrap
+import traceback
 import warnings
 from typing import Callable, Optional
-import pickle
+
 import jsonlines
-
-
 import numpy as np
 from joblib import Parallel, delayed
-from .llm import LLM
-from .feature_guidance import FeatureGuidance, compute_feature_guidance
+
 from .ast_features import extract_ast_features
+from .feature_guidance import FeatureGuidance, compute_feature_guidance
+from .llm import LLM
 from .multi_objective_fitness import Fitness
+from .rlm_surrogate.problem_instances import ProblemInstance
+from .rlm_surrogate.screening import (
+    ACTIVE_STRATEGIES,
+    RLMScreener,
+    RLMScreeningConfig,
+    decide_threshold_reject,
+    decide_topk_filter,
+)
 
 try:
     from ConfigSpace import ConfigurationSpace
@@ -31,8 +39,8 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
 from .loggers import ExperimentLogger
-from .solution import Solution
 from .pareto_archive import ParetoArchive
+from .solution import Solution
 from .utils import (
     NoCodeException,
     code_distance,
@@ -46,8 +54,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 
 class LLaMEA:
@@ -96,6 +104,20 @@ class LLaMEA:
         diff_mode: bool = False,
         parent_selection: str = "random",
         tournament_size: int = 3,
+        rlm_screening: Optional[str] = None,
+        rlm_checkpoint_dir: Optional[str] = None,
+        rlm_problem_instances: Optional[list] = None,
+        rlm_feature_mode: str = "lhs",
+        rlm_n_lhs_points: int = 20,
+        rlm_lhs_seed: int = 0,
+        rlm_overgenerate_factor: float = 2.0,
+        rlm_threshold_quantile: float = 0.5,
+        rlm_fallback_fitness: Optional[float] = None,
+        rlm_include_description: bool = True,
+        rlm_include_configspace: bool = True,
+        rlm_predict_batch_size: int = 4,
+        rlm_num_samples_point_pred: Optional[int] = None,
+        rlm_device: Optional[str] = None,
     ):
         """
         Initializes the LLaMEA instance with provided parameters. Note that by default LLaMEA maximizes the objective.
@@ -172,6 +194,74 @@ class LLaMEA:
                 roulette wheel selection ``"roulette"``.
             tournament_size (int): Number of candidates sampled in each
                 tournament when using ``"tournament"`` selection.
+            rlm_screening (str | None): RLM pre-screening strategy for newly
+                sampled offspring, before (optionally) spending the real
+                evaluation budget (``f``) on them. One of ``None``/``"off"``
+                (disabled, default), ``"log_only"`` (score every offspring
+                and record the prediction in
+                ``Solution.metadata["rlm_predicted_score"]`` without
+                changing evaluation), ``"topk_filter"`` (over-generate
+                ``n_offspring * rlm_overgenerate_factor`` candidates per
+                generation, real-evaluate only the ``n_offspring``
+                best-predicted ones, discard the rest entirely -- they never
+                count against ``budget``), or ``"threshold_reject"``
+                (no over-generation; within each batch of ``n_offspring``,
+                skip real evaluation for candidates below
+                ``rlm_threshold_quantile`` of that batch's predictions,
+                assigning ``rlm_fallback_fitness`` instead -- these still
+                count against ``budget``). See
+                :mod:`llamea.rlm_surrogate.screening` for the full
+                rationale and the exact budget-accounting semantics of each
+                strategy. Requires ``rlm_checkpoint_dir`` and
+                ``rlm_problem_instances`` when not ``None``/``"off"``.
+            rlm_checkpoint_dir (str | None): Directory written by
+                ``llamea.rlm_surrogate.train`` (``model.pt`` +
+                ``config.yaml``) to load for pre-screening.
+            rlm_problem_instances (list | None): The benchmark problem
+                instances ``f`` evaluates candidates against, as a list of
+                :class:`~llamea.rlm_surrogate.problem_instances.ProblemInstance`
+                (or equivalent dicts, e.g.
+                ``{"kind": "bbob", "dim": 10, "fid_or_idx": 1, "iid": 1}``).
+                Used to build the same per-instance problem-feature text
+                the surrogate was trained on; required (non-empty) when
+                ``rlm_screening`` is active -- never guessed from ``f``.
+            rlm_feature_mode (str): Problem-feature text mode -- one of
+                ``"lhs"``, ``"lhs_stats"``, ``"meta"``, ``"meta+lhs"``,
+                ``"meta+lhs_stats"``. **Must exactly match** the
+                ``--feature-mode`` the checkpoint at ``rlm_checkpoint_dir``
+                was trained with (this isn't recorded in the checkpoint and
+                can't be validated automatically -- see the module
+                docstring of :mod:`llamea.rlm_surrogate.screening`).
+            rlm_n_lhs_points (int): Number of LHS points per problem
+                fingerprint. Must match the checkpoint's training-time
+                ``--lhs-points``.
+            rlm_lhs_seed (int): LHS sampler seed. Must match the
+                checkpoint's training-time ``--lhs-seed``.
+            rlm_overgenerate_factor (float): ``"topk_filter"`` only --
+                over-generation pool size is
+                ``round(n_offspring * rlm_overgenerate_factor)``. The
+                inverse is the pre-screening ``k/N`` ratio (e.g. ``4.0`` ==
+                keep the predicted-best 25%).
+            rlm_threshold_quantile (float): ``"threshold_reject"`` only, in
+                ``[0, 1]`` -- candidates below this quantile of each
+                batch's predicted scores (above, under ``minimization``)
+                are rejected. ``0.5`` rejects the bottom half.
+            rlm_fallback_fitness (float | None): Fitness assigned to a
+                rejected candidate under ``"threshold_reject"``. ``None``
+                uses ``worst_value``.
+            rlm_include_description (bool): Must match the checkpoint's
+                training-time ``data_pipeline.py`` description inclusion
+                (default ``True`` == not run with ``--no-description``).
+            rlm_include_configspace (bool): Must match the checkpoint's
+                training-time ``data_pipeline.py`` configspace inclusion
+                (default ``True`` == not run with ``--no-configspace``).
+            rlm_predict_batch_size (int): Chunk size for the surrogate's
+                sampling-based inference -- see
+                ``llamea.rlm_surrogate.model.median_point_predictions`` for
+                the OOM tradeoffs of raising this.
+            rlm_num_samples_point_pred (int | None): Overrides the
+                checkpoint's own median-of-N sample count if given.
+            rlm_device (str | None): ``"cuda"``/``"cpu"``/``None`` (auto).
         """
         self.llm = llm
         self.model = llm.model
@@ -324,6 +414,58 @@ class LLaMEA:
         self.experiment_name = experiment_name
         self.parent_selection = parent_selection  # "random" | "roulette" | "tournament"
         self.tournament_size = tournament_size
+
+        self.rlm_screening = None if rlm_screening in (None, "off") else rlm_screening
+        self.rlm_overgenerate_factor = rlm_overgenerate_factor
+        self.rlm_threshold_quantile = rlm_threshold_quantile
+        self.rlm_fallback_fitness = rlm_fallback_fitness
+        self.rlm_screener: Optional[RLMScreener] = None
+        if self.rlm_screening is not None:
+            if self.rlm_screening not in ACTIVE_STRATEGIES:
+                raise ValueError(
+                    f"Unknown rlm_screening strategy: {rlm_screening!r}. "
+                    f"Expected one of None/'off' or {ACTIVE_STRATEGIES}."
+                )
+            if not rlm_checkpoint_dir:
+                raise ValueError(
+                    "rlm_screening is active but rlm_checkpoint_dir was not given."
+                )
+            if not rlm_problem_instances:
+                raise ValueError(
+                    "rlm_screening is active but rlm_problem_instances was not "
+                    "given -- pass the ProblemInstance list (or equivalent "
+                    "dicts) describing the benchmark functions `f` evaluates "
+                    "candidates against."
+                )
+            if evaluate_population:
+                raise ValueError(
+                    "rlm_screening is not supported together with "
+                    "evaluate_population=True: screening decides per-candidate "
+                    "whether to spend the real evaluation, but evaluate_population "
+                    "evaluates the whole batch (plus parents) through one call to "
+                    "`f`, so a per-candidate skip can't be expressed there without "
+                    "double-evaluating already-screened-out candidates."
+                )
+            instances = [
+                inst if isinstance(inst, ProblemInstance) else ProblemInstance(**inst)
+                for inst in rlm_problem_instances
+            ]
+            screening_config = RLMScreeningConfig(
+                checkpoint_dir=rlm_checkpoint_dir,
+                strategy=self.rlm_screening,
+                feature_mode=rlm_feature_mode,
+                n_lhs_points=rlm_n_lhs_points,
+                lhs_seed=rlm_lhs_seed,
+                overgenerate_factor=rlm_overgenerate_factor,
+                threshold_quantile=rlm_threshold_quantile,
+                fallback_fitness=rlm_fallback_fitness,
+                include_description=rlm_include_description,
+                include_configspace=rlm_include_configspace,
+                predict_batch_size=rlm_predict_batch_size,
+                num_samples_point_pred=rlm_num_samples_point_pred,
+                device=rlm_device,
+            )
+            self.rlm_screener = RLMScreener(screening_config, instances)
 
         if self.log and getattr(self, "logger", None) is None:
             modelname = self.model.replace(":", "_")
@@ -943,10 +1085,19 @@ Feedback:
                     break
             return sorted_pool
 
-    def evolve_solution(self, individual):
+    def generate_candidate(self, individual):
         """
-        Evolves a single solution by constructing a new prompt,
-        querying the LLM, and evaluating the fitness.
+        Samples a new offspring from `individual` via the LLM (prompt
+        construction, AST/feature-guidance metadata), WITHOUT running the
+        real evaluation (`self.f`). Factored out of `evolve_solution` so the
+        RLM pre-screening path (`_screen_and_evaluate_pool`) can generate a
+        pool of candidates, score them, and only pay for `self.f` on the
+        ones worth it.
+
+        On failure, mirrors `evolve_solution`'s original exception handling:
+        the returned individual has `.error`/`.fitness` already set to
+        `worst_value`, and has been logged via `self.f.log_individual` if
+        available.
         """
         individual_copy = individual.copy()
         if self.adaptive_prompt:
@@ -979,9 +1130,6 @@ Feedback:
                     )
                 except Exception:
                     pass
-
-            if not self.evaluate_population:
-                evolved_individual = self.evaluate_fitness(evolved_individual)
         except Exception as e:
             evolved_individual.generation = self.generation
             evolved_individual.set_scores(
@@ -990,9 +1138,133 @@ Feedback:
             if hasattr(self.f, "log_individual"):
                 self.f.log_individual(evolved_individual)
             self.logevent(f"An exception occured: {traceback.format_exc()}.")
+        return evolved_individual
 
+    def _evaluate_with_error_handling(self, individual):
+        """
+        Runs `self.evaluate_fitness` on `individual`, applying the same
+        exception handling `evolve_solution` used to do inline (worst_value
+        fitness, log_individual, logevent) so callers (the normal
+        generation step and the RLM-screened one) share identical failure
+        behavior.
+        """
+        try:
+            return self.evaluate_fitness(individual)
+        except Exception as e:
+            individual.set_scores(
+                self.worst_value, f"An exception occurred: {e.__repr__()}.", e
+            )
+            if hasattr(self.f, "log_individual"):
+                self.f.log_individual(individual)
+            self.logevent(f"An exception occured: {traceback.format_exc()}.")
+            return individual
+
+    def evolve_solution(self, individual):
+        """
+        Evolves a single solution by constructing a new prompt,
+        querying the LLM, and evaluating the fitness.
+        """
+        evolved_individual = self.generate_candidate(individual)
+        if evolved_individual.error:
+            return evolved_individual
+        if not self.evaluate_population:
+            evolved_individual = self._evaluate_with_error_handling(evolved_individual)
         # self.progress_bar.update(1)
         return evolved_individual
+
+    def _screen_and_evaluate_pool(self, parents):
+        """
+        RLM-screened counterpart to the plain
+        `Parallel(...)(delayed(self.evolve_solution)(p) for p in parents)`
+        generation step: over-generates/generates a pool of LLM-sampled
+        candidates from `parents` (size depends on `self.rlm_screening`),
+        scores the ones that sampled successfully with `self.rlm_screener`,
+        applies the configured strategy to decide which get the real
+        evaluation (`self.f`), and returns the final list of Solutions --
+        same contract as the unscreened path (every returned Solution has
+        `.fitness` set, ready for `run_history`/selection).
+
+        See `rlm_surrogate.screening.RLMScreeningConfig` for exactly which
+        candidates count against the evaluation budget under each strategy.
+        """
+        timeout = self.eval_timeout
+        try:
+            pool_gen = Parallel(
+                n_jobs=self.max_workers,
+                timeout=timeout + 15,
+                backend=self.parallel_backend,
+                return_as="generator_unordered",
+            )(delayed(self.generate_candidate)(individual) for individual in parents)
+            candidate_pool = list(pool_gen)
+        except Exception:
+            print("Parallel time out during RLM-screened candidate generation.")
+            candidate_pool = []
+
+        # Candidates whose *generation* already failed (LLM/parsing error)
+        # are not meaningful to screen -- they're always kept, same as the
+        # unscreened path keeps a failed evolve_solution() result.
+        failed = [c for c in candidate_pool if c.error]
+        scoreable = [c for c in candidate_pool if not c.error]
+
+        strategy = self.rlm_screening
+        predicted = self.rlm_screener.score(scoreable) if scoreable else np.array([])
+        for cand, score in zip(scoreable, predicted):
+            cand.add_metadata("rlm_predicted_score", float(score))
+
+        if strategy == "log_only" or not scoreable:
+            to_evaluate, skipped = scoreable, []
+        elif strategy == "topk_filter":
+            keep_mask = decide_topk_filter(
+                predicted, self.n_offspring, self.minimization
+            )
+            to_evaluate = [c for c, keep in zip(scoreable, keep_mask) if keep]
+            skipped = [c for c, keep in zip(scoreable, keep_mask) if not keep]
+        elif strategy == "threshold_reject":
+            keep_mask = decide_threshold_reject(
+                predicted, self.rlm_threshold_quantile, self.minimization
+            )
+            to_evaluate = [c for c, keep in zip(scoreable, keep_mask) if keep]
+            skipped = [c for c, keep in zip(scoreable, keep_mask) if not keep]
+        else:
+            raise ValueError(f"Unknown rlm_screening strategy: {strategy!r}")
+
+        fallback = (
+            self.rlm_fallback_fitness
+            if self.rlm_fallback_fitness is not None
+            else self.worst_value
+        )
+        for cand in skipped:
+            cand.add_metadata("rlm_screened_out", True)
+            cand.set_scores(
+                fallback,
+                feedback="Filtered by RLM pre-screening before real evaluation.",
+            )
+
+        evaluated = []
+        if to_evaluate and not self.evaluate_population:
+            try:
+                evaluated_gen = Parallel(
+                    n_jobs=self.max_workers,
+                    timeout=timeout + 15,
+                    backend=self.parallel_backend,
+                    return_as="generator_unordered",
+                )(
+                    delayed(self._evaluate_with_error_handling)(cand)
+                    for cand in to_evaluate
+                )
+                evaluated = list(evaluated_gen)
+            except Exception:
+                print("Parallel time out during RLM-screened real evaluation.")
+        elif to_evaluate:
+            evaluated = to_evaluate
+
+        result = failed + evaluated
+        # "topk_filter" discards skipped candidates entirely -- they never
+        # count against the evaluation budget. The other active strategies
+        # keep batch size/budget accounting unchanged.
+        if strategy != "topk_filter":
+            result += skipped
+        return result
 
     def get_population_from(self, archive_path):
         """
@@ -1043,18 +1315,20 @@ Feedback:
         else:
             print("-----------Init not called--------------")
 
-    def _select_parents(self):
+    def _select_parents(self, k: Optional[int] = None):
         """
-        Return list of parents (length = n_offspring) chosen according to
-        self.parent_selection.
+        Return list of parents (length = k, defaulting to n_offspring)
+        chosen according to self.parent_selection.
         """
+        if k is None:
+            k = self.n_offspring
         method = (self.parent_selection or "random").lower()
         if method == "random":
-            return np.random.choice(self.population, self.n_offspring, replace=True)
+            return np.random.choice(self.population, k, replace=True)
         elif method == "roulette":
-            return self._roulette_wheel_selection(self.n_offspring)
+            return self._roulette_wheel_selection(k)
         elif method == "tournament":
-            return self._tournament_selection(self.n_offspring, self.tournament_size)
+            return self._tournament_selection(k, self.tournament_size)
         else:
             raise ValueError(f"Unknown parent_selection: {self.parent_selection}")
 
@@ -1158,23 +1432,41 @@ Feedback:
         if self.feature_guided_mutation:
             self._update_feature_guidance()
         while len(self.run_history) < self.budget:
-            # pick a new offspring population using random sampling
-            new_offspring_population = self._select_parents()
-
             new_population = []
-            try:
-                timeout = self.eval_timeout
-                new_population_gen = Parallel(
-                    n_jobs=self.max_workers,
-                    timeout=timeout + 15,
-                    backend=self.parallel_backend,
-                    return_as="generator_unordered",
-                )(
-                    delayed(self.evolve_solution)(individual)
-                    for individual in new_offspring_population
+
+            if self.rlm_screening is not None:
+                # Pre-screening decides pool size itself (over-generates for
+                # "topk_filter", exactly n_offspring otherwise) -- see
+                # _screen_and_evaluate_pool / RLMScreeningConfig.
+                if self.rlm_screening == "topk_filter":
+                    pool_size = max(
+                        self.n_offspring,
+                        int(round(self.n_offspring * self.rlm_overgenerate_factor)),
+                    )
+                else:
+                    pool_size = self.n_offspring
+                new_offspring_population = self._select_parents(pool_size)
+                new_population_gen = self._screen_and_evaluate_pool(
+                    new_offspring_population
                 )
-            except Exception as e:
-                print("Parallel time out .")
+            else:
+                # pick a new offspring population using random sampling
+                new_offspring_population = self._select_parents()
+
+                new_population_gen = []
+                try:
+                    timeout = self.eval_timeout
+                    new_population_gen = Parallel(
+                        n_jobs=self.max_workers,
+                        timeout=timeout + 15,
+                        backend=self.parallel_backend,
+                        return_as="generator_unordered",
+                    )(
+                        delayed(self.evolve_solution)(individual)
+                        for individual in new_offspring_population
+                    )
+                except Exception as e:
+                    print("Parallel time out .")
 
             for p in new_population_gen:
                 if math.isnan(p.fitness):
