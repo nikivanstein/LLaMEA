@@ -10,6 +10,7 @@ import pytest
 import llamea.llm as llm_mod  # the module that defines query
 from llamea import (
     LLM,
+    Anthropic_LLM,
     Dummy_LLM,
     Gemini_LLM,
     Multi_LLM,
@@ -79,6 +80,108 @@ def test_openai_llm_pickle_roundtrip(monkeypatch):
     assert revived.model == llm.model
     assert isinstance(revived.client, _DummyOpenAI)
     assert revived.client.kwargs["api_key"] == "sk-test"
+
+
+class _DummyAnthropicClient:
+    """Stand-in for anthropic.Anthropic that records its kwargs and requests."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.messages = MagicMock()
+
+
+def _patch_anthropic(monkeypatch):
+    """
+    Swaps the anthropic module inside llamea.llm for a fake, so the tests
+    run without the anthropic package or network access.
+    """
+    fake_module = MagicMock()
+    fake_module.Anthropic = _DummyAnthropicClient
+    monkeypatch.setattr(llm_mod, "anthropic", fake_module)
+
+
+def _anthropic_response(*texts):
+    """Builds a Messages API response with one text block per string."""
+    return MagicMock(content=[MagicMock(type="text", text=t) for t in texts])
+
+
+def test_anthropic_llm_init(monkeypatch):
+    _patch_anthropic(monkeypatch)
+
+    llm = Anthropic_LLM(api_key="sk-ant-test", model="claude-haiku-5-5")
+
+    assert llm.model == "claude-haiku-5-5"
+    assert llm.client.kwargs == {"api_key": "sk-ant-test", "max_retries": 5}
+
+
+def test_anthropic_llm_query_sends_request_and_joins_text(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(
+        api_key="sk-ant-test", model="claude-opus-5-5", temperature=0.3, max_tokens=123
+    )
+    thinking = MagicMock(type="thinking")
+    llm.client.messages.create.return_value = MagicMock(
+        content=[thinking] + _anthropic_response("Hello ", "world").content
+    )
+
+    out = llm.query([{"role": "user", "content": "hi"}])
+
+    assert out == "Hello world"  # non-text blocks are skipped
+    llm.client.messages.create.assert_called_once_with(
+        model="claude-opus-5-5",
+        max_tokens=123,
+        temperature=0.3,
+        messages=[{"role": "user", "content": "hi"}],
+    )
+
+
+def test_anthropic_llm_query_moves_system_messages(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(api_key="sk-ant-test")
+    llm.client.messages.create.return_value = _anthropic_response("ok")
+
+    llm.query(
+        [
+            {"role": "system", "content": "You are an expert."},
+            {"role": "user", "content": "Write code."},
+        ]
+    )
+
+    kwargs = llm.client.messages.create.call_args.kwargs
+    assert kwargs["system"] == "You are an expert."
+    assert kwargs["messages"] == [{"role": "user", "content": "Write code."}]
+
+
+def test_anthropic_llm_sample_solution(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(api_key="sk-ant-test")
+    llm.client.messages.create.return_value = _anthropic_response(
+        "# Description: Random search\n```python\nclass RS:\n    pass\n```"
+    )
+
+    sol = llm.sample_solution([{"role": "user", "content": "go"}])
+
+    assert sol.name == "RS"
+    assert sol.description == "Random search"
+    assert "class RS" in sol.code
+
+
+def test_anthropic_llm_deepcopy_and_pickle_restore_client(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(api_key="sk-ant-test", model="claude-sonnet-5-5")
+
+    assert "client" not in llm.__getstate__()
+
+    clone = copy.deepcopy(llm)
+    assert clone.model == llm.model
+    assert isinstance(clone.client, _DummyAnthropicClient)
+    assert clone.client is not llm.client
+    assert clone.client.kwargs["api_key"] == "sk-ant-test"
+
+    revived = pickle.loads(pickle.dumps(llm))
+    assert revived.max_tokens == llm.max_tokens
+    assert isinstance(revived.client, _DummyAnthropicClient)
+    assert revived.client.kwargs["api_key"] == "sk-ant-test"
 
 
 def test_llm_instantiation():

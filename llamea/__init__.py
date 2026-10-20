@@ -1,6 +1,7 @@
 from .llamea import LLaMEA
 from .llm import (
     LLM,
+    Anthropic_LLM,
     Dummy_LLM,
     Gemini_LLM,
     Multi_LLM,
@@ -18,4 +19,7 @@ from .utils import (
     prepare_namespace,
     clean_local_namespace,
 )
+from .operator import Operator
 from .multi_objective_fitness import Fitness
+
+from .weight_updaters import DefaultWeightUpdater, DiscountedUCBState
