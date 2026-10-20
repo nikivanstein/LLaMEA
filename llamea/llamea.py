@@ -820,22 +820,29 @@ Feedback:
         if not population:
             return population
 
-        reference = list(population)
-        reference.extend(self.novelty_archive)
+        # Failed individuals are not used as neighbours
+        reference = [
+            ind for ind in list(population) + self.novelty_archive if not ind.error
+        ]
 
         for individual in population:
-            distances = [
-                self.distance_metric(individual, other)
-                for other in reference
-                if other.id != individual.id
-            ]
-
-            if not distances:
-                novelty_score = 0.0
+            if individual.error:
+                novelty_score = self.worst_value  # failed: never selected
             else:
-                distances.sort()
-                k = min(self.novelty_k, len(distances))
-                novelty_score = float(np.mean(distances[:k]))
+                distances = [
+                    self.distance_metric(individual, other)
+                    for other in reference
+                    if other.id != individual.id
+                ]
+                # Skip pairs the distance metric cannot compare (NaN)
+                distances = [d for d in distances if np.isfinite(d)]
+
+                if not distances:
+                    novelty_score = 0.0
+                else:
+                    distances.sort()
+                    k = min(self.novelty_k, len(distances))
+                    novelty_score = float(np.mean(distances[:k]))
 
             if individual.get_metadata("raw_fitness") is None:
                 individual.add_metadata("raw_fitness", individual.fitness)

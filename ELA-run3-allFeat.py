@@ -214,29 +214,29 @@ def test_func(x):
 def ela_distance(s1, s2):
     """
     Calculate the ELA distance between two solutions based on their metadata.
+    Returns NaN if either solution has no usable ELA features (failed
+    evaluation), so it is not treated as identical to everything else.
     """
     if "ela_features" not in s1.metadata or "ela_features" not in s2.metadata:
-        return 0.0  # No features to compare
+        return np.nan  # No features to compare
 
-    features1 = s1.metadata["ela_features"]
-    features2 = s2.metadata["ela_features"]
+    scaler = joblib.load("ela_scaler.joblib")
 
-    # Replace NaN values with zeros
-    features1 = np.nan_to_num(features1, nan=0.0)
-    features2 = np.nan_to_num(features2, nan=0.0)
+    scaled = []
+    for features in (s1.metadata["ela_features"], s2.metadata["ela_features"]):
+        features = np.asarray(features, dtype=float)
 
-    try:
-        scaler = joblib.load(f"ela_scaler.joblib")
-        features1 = scaler.transform(features1)
-        features2 = scaler.transform(features2)
-    except:
-        pass
+        # The scaler was fitted without the 4 pca.*_init features, so drop them
+        features = np.delete(features, [35, 36, 39, 40])
+        if not np.isfinite(features).any():
+            return np.nan  # No usable features to compare
+
+        # Replace NaN/inf with the feature mean (0 after scaling)
+        features = np.where(np.isfinite(features), features, scaler.mean_)
+        scaled.append(scaler.transform(features.reshape(1, -1))[0])
 
     # Calculate the Manhattan distance between the two feature vectors
-    if len(features1) != len(features2):
-        # fallback to Euclidean distance if lengths differ
-        return np.linalg.norm(features1 - features2)
-    return np.sum(np.abs(features1 - features2))
+    return np.sum(np.abs(scaled[0] - scaled[1]))
 
 
 class ELAproblem:
