@@ -289,15 +289,22 @@ class LLaMEA:
         if len(operators) == 0:
             self.operators.append(
                 Operator(
-                    "mutation",
-                    "Refine the strategy of the selected solution to improve it.",
-                    1.0,
-                    1,
+                    prompt="Refine the strategy of the selected solution to improve it.",
+                    name="mutation",
+                    weight=1.0,
+                    number_of_parents=1,
                 )
             )
         for operator in operators:
             if isinstance(operator, str):
-                self.operators.append(Operator("mutation", operator, 1.0, 1))
+                self.operators.append(
+                    Operator(
+                        prompt=operator,
+                        name="mutation",
+                        weight=1.0,
+                        number_of_parents=1,
+                    )
+                )
             else:
                 assert (
                     operator.number_of_parents <= n_parents
