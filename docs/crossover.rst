@@ -1,7 +1,7 @@
 Crossover
 ~~~~~~~~~~
 
-Crossover operators define how new individuals are generated from one or more existing individuals. They are configured using the Operators class and can be supplied to LLaMEA through the operators parameter.
+Crossover operators define how new individuals are generated from one or more existing individuals. They are configured using the ``Operator`` class and can be supplied to LLaMEA through the operators parameter.
 
 Operators
 
@@ -13,7 +13,7 @@ An operator is defined as follows:
     import uuid
 
     @dataclass
-    class Operators:
+    class Operator:
         prompt: str
         name: str = "mutation"
         weight: float = field(default=0.5, compare=False)
@@ -55,9 +55,11 @@ For example:
 
 .. code-block:: python
 
-    operator = Operators(
+    from llamea import Operator
+
+    operator = Operator(
         prompt="Combine useful properties from the selected parents.",
-        name="crossover"",
+        name="crossover",
         number_of_parents=2,
     )
 
