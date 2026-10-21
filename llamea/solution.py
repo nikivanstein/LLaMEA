@@ -48,12 +48,14 @@ class Solution:
         self.parent_ids = parent_ids
         self.metadata = {}  # Dictionary to store additional metadata
         self.operator = operator
+        self.operator_id = None  # Operator.id, set by set_operator()
         self.task_prompt = task_prompt
 
     def __getstate__(self):
         return self.to_dict()
 
     def __setstate__(self, state):
+        state.setdefault("operator_id", None)  # older pickles lack this field
         self.__dict__.update(state)
         if self.configspace == "":
             self.configspace = None
@@ -161,6 +163,7 @@ class Solution:
         new_solution.feedback = self.feedback
         new_solution.error = self.error
         new_solution.metadata = self.metadata.copy()  # Copy the metadata as well
+        new_solution.operator_id = self.operator_id
         return new_solution
 
     def empty_copy(self):
@@ -205,6 +208,7 @@ class Solution:
             "error": self.error,
             "parent_ids": self.parent_ids,
             "operator": self.operator,
+            "operator_id": self.operator_id,
             "metadata": self.metadata,
             "task_prompt": self.task_prompt,
         }

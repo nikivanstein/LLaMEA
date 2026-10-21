@@ -292,3 +292,37 @@ def test_ubc_weight_updater_updates_weight_properly():
             weight = wu.update(operator.id, i)
             print(f'\t Operator: {operator.id}, weight=({old_weight} -> {weight})')
             assert old_weight > weight
+
+
+def test_default_operator_has_instruction_as_prompt():
+    llamea = LLaMEA(lambda s, logger=None: s, Dummy_LLM(), 5, 5, log=False)
+    assert len(llamea.operators) == 1
+    op = llamea.operators[0]
+    assert op.name == "mutation"
+    assert op.prompt.startswith("Refine the strategy")
+
+
+def test_string_operator_is_used_as_prompt():
+    llamea = LLaMEA(
+        lambda s, logger=None: s,
+        Dummy_LLM(),
+        5,
+        5,
+        operators=["Simplify the code."],
+        log=False,
+    )
+    op = llamea.operators[0]
+    assert op.name == "mutation"
+    assert op.prompt == "Simplify the code."
+
+
+def test_operator_id_survives_pickle():
+    import pickle
+
+    op = Operator("Refine it.")
+    sol = Solution(code="x = 1")
+    sol.set_operator((op, "parent-id"))
+    assert sol.to_dict()["operator_id"] == op.id
+    restored = pickle.loads(pickle.dumps(sol))
+    assert restored.operator_id == op.id
+    assert sol.copy().operator_id == op.id

@@ -128,7 +128,7 @@ class LLaMEA:
             HPO (bool): Flag to decide if hyper-parameter optimization is part of the evaluation function.
                 In case it is, a configuration space should be asked from the LLM as additional output in json format.
             operators (list): A list of `Operator` | `str` to specify operators to the LLM model. If provided as `str` it is typecasted to `Operator`
-                of `mutation` type. Each mutation, a random choice from this list is made.
+                of `mutation` type. A single `Operator` or `str` is also accepted. Each mutation, a random choice from this list is made.
             operator_weight_updater (WeightUpdater): An operator updater object, that inherits form WeightUpdater ABC. Used to define weight
                 update behaviour for operators. Defaults to `DefaultWeightUpdater` if None provided.
             adaptive_mutation (bool): If set to True, the mutation prompt 'Change X% of the lines of code' will be used in an adaptive control setting.
@@ -285,19 +285,30 @@ class LLaMEA:
             >>>>>>> REPLACE
             ```
             """)
+        if isinstance(operators, (str, Operator)):
+            # A single operator was passed; wrap it so a string is not
+            # iterated character by character.
+            operators = [operators]
         self.operators: list[Operator] = []
         if len(operators) == 0:
             self.operators.append(
                 Operator(
-                    "mutation",
-                    "Refine the strategy of the selected solution to improve it.",
-                    1.0,
-                    1,
+                    prompt="Refine the strategy of the selected solution to improve it.",
+                    name="mutation",
+                    weight=1.0,
+                    number_of_parents=1,
                 )
             )
         for operator in operators:
             if isinstance(operator, str):
-                self.operators.append(Operator("mutation", operator, 1.0, 1))
+                self.operators.append(
+                    Operator(
+                        prompt=operator,
+                        name="mutation",
+                        weight=1.0,
+                        number_of_parents=1,
+                    )
+                )
             else:
                 assert (
                     operator.number_of_parents <= n_parents
