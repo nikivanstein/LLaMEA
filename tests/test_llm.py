@@ -88,6 +88,7 @@ class _DummyAnthropicClient:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.messages = MagicMock()
+        self.beta = MagicMock()
 
 
 def _patch_anthropic(monkeypatch):
@@ -100,9 +101,12 @@ def _patch_anthropic(monkeypatch):
     monkeypatch.setattr(llm_mod, "anthropic", fake_module)
 
 
-def _anthropic_response(*texts):
+def _anthropic_response(*texts, stop_reason="end_turn"):
     """Builds a Messages API response with one text block per string."""
-    return MagicMock(content=[MagicMock(type="text", text=t) for t in texts])
+    return MagicMock(
+        content=[MagicMock(type="text", text=t) for t in texts],
+        stop_reason=stop_reason,
+    )
 
 
 def test_anthropic_llm_init(monkeypatch):
@@ -116,13 +120,11 @@ def test_anthropic_llm_init(monkeypatch):
 
 def test_anthropic_llm_query_sends_request_and_joins_text(monkeypatch):
     _patch_anthropic(monkeypatch)
-    llm = Anthropic_LLM(
-        api_key="sk-ant-test", model="claude-opus-5-5", temperature=0.3, max_tokens=123
-    )
+    llm = Anthropic_LLM(api_key="sk-ant-test", model="claude-opus-5-5", max_tokens=123)
     thinking = MagicMock(type="thinking")
-    llm.client.messages.create.return_value = MagicMock(
-        content=[thinking] + _anthropic_response("Hello ", "world").content
-    )
+    response = _anthropic_response("Hello ", "world")
+    response.content = [thinking] + response.content
+    llm.client.messages.create.return_value = response
 
     out = llm.query([{"role": "user", "content": "hi"}])
 
@@ -130,7 +132,6 @@ def test_anthropic_llm_query_sends_request_and_joins_text(monkeypatch):
     llm.client.messages.create.assert_called_once_with(
         model="claude-opus-5-5",
         max_tokens=123,
-        temperature=0.3,
         messages=[{"role": "user", "content": "hi"}],
     )
 
@@ -150,6 +151,68 @@ def test_anthropic_llm_query_moves_system_messages(monkeypatch):
     kwargs = llm.client.messages.create.call_args.kwargs
     assert kwargs["system"] == "You are an expert."
     assert kwargs["messages"] == [{"role": "user", "content": "Write code."}]
+
+
+def test_anthropic_llm_never_sends_temperature(monkeypatch):
+    # API version 2026-10-21 rejects sampling parameters on every model.
+    _patch_anthropic(monkeypatch)
+    with pytest.warns(DeprecationWarning):
+        llm = Anthropic_LLM(api_key="sk-ant-test", temperature=0.3)
+    llm.client.messages.create.return_value = _anthropic_response("ok")
+
+    llm.query([{"role": "user", "content": "hi"}])
+
+    kwargs = llm.client.messages.create.call_args.kwargs
+    assert "temperature" not in kwargs
+    assert "output_config" not in kwargs
+    assert kwargs["max_tokens"] == 16000
+
+
+def test_anthropic_llm_sends_effort(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(api_key="sk-ant-test", effort="high")
+    llm.client.messages.create.return_value = _anthropic_response("ok")
+
+    llm.query([{"role": "user", "content": "hi"}])
+
+    kwargs = llm.client.messages.create.call_args.kwargs
+    assert kwargs["output_config"] == {"effort": "high"}
+
+
+def test_anthropic_llm_fallbacks_use_beta_endpoint(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(api_key="sk-ant-test", fallbacks="default")
+    llm.client.beta.messages.create.return_value = _anthropic_response("OK")
+
+    assert llm.query([{"role": "user", "content": "hi"}]) == "OK"
+
+    kwargs = llm.client.beta.messages.create.call_args.kwargs
+    assert kwargs["fallbacks"] == "default"
+    assert kwargs["betas"] == ["server-side-fallback-2026-07-01"]
+    llm.client.messages.create.assert_not_called()
+
+
+def test_anthropic_llm_refusal_returns_no_text(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(api_key="sk-ant-test")
+    llm.client.messages.create.return_value = _anthropic_response(
+        "partial", stop_reason="refusal"
+    )
+
+    assert llm.query([{"role": "user", "content": "hi"}]) == ""
+
+
+def test_anthropic_llm_unpickles_state_without_new_fields(monkeypatch):
+    _patch_anthropic(monkeypatch)
+    llm = Anthropic_LLM(api_key="sk-ant-test")
+    state = llm.__getstate__()
+    del state["effort"], state["fallbacks"]
+
+    revived = Anthropic_LLM.__new__(Anthropic_LLM)
+    revived.__setstate__(state)
+
+    assert revived.effort is None and revived.fallbacks is None
+    assert isinstance(revived.client, _DummyAnthropicClient)
 
 
 def test_anthropic_llm_sample_solution(monkeypatch):
