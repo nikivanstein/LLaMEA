@@ -8,6 +8,7 @@ import pickle
 import random
 import re
 import time
+import warnings
 from abc import ABC, abstractmethod
 
 try:
@@ -36,7 +37,7 @@ try:
 except ModuleNotFoundError:
     lms = object
 try:
-    from mlx_lm import load, generate
+    from mlx_lm import generate, load
 except ModuleNotFoundError:
     load = None
     generate = None
@@ -46,9 +47,9 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
     ConfigurationSpace = None
 
+from .diffmodemanager import DiffModeManager
 from .solution import Solution
 from .utils import NoCodeException, apply_code_delta
-from .diffmodemanager import DiffModeManager
 
 
 class LLM(ABC):
@@ -570,34 +571,52 @@ class Anthropic_LLM(LLM):
         self,
         api_key,
         model="claude-sonnet-5-5",
-        temperature=0.8,
+        temperature=None,
         max_tokens=16000,
         max_retries=5,
+        effort=None,
+        fallbacks=None,
         **kwargs,
     ):
         """
         Initializes the LLM manager with an API key and model name.
 
         Args:
-            api_key (str): api key for authentication.
+            api_key (str | None): api key for authentication. ``None`` lets the SDK
+                resolve credentials (``ANTHROPIC_API_KEY``, an ``ant auth login`` profile, ...).
             model (str, optional): model abbreviation. Defaults to "claude-sonnet-5-5".
                 Options are: claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, and others from Anthropic's models library.
-            temperature (float, optional): sampling temperature. Defaults to 0.8.
-            max_tokens (int, optional): maximum number of output tokens per response. Defaults to 16000.
+            temperature (float | None, optional): deprecated and ignored. The Claude API
+                (version 2026-10-21) no longer accepts sampling parameters.
+            max_tokens (int, optional): maximum number of output tokens per response
+                (thinking included). Defaults to 16000.
             max_retries (int, optional): retries on rate limits, timeouts and server errors,
                 handled with exponential backoff by the anthropic SDK. Defaults to 5.
+            effort (str | None, optional): ``output_config.effort`` ("low", "medium",
+                "high", "xhigh" or "max"). ``None`` uses the model's default.
+            fallbacks (str | list | None, optional): server-side refusal fallbacks,
+                e.g. ``"default"``. Sent through the beta endpoint.
         """
         if anthropic is None:  # pragma: no cover - optional dependency
             raise ImportError(
                 "anthropic is required to use Anthropic_LLM. Install the 'anthropic' package."
             )
         super().__init__(api_key, model, None, **kwargs)
+        if temperature is not None:
+            warnings.warn(
+                "Anthropic_LLM ignores temperature: the Claude API no longer "
+                "accepts sampling parameters.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self._client_kwargs = dict(api_key=api_key, max_retries=max_retries)
         self.client = anthropic.Anthropic(**self._client_kwargs)
         logging.getLogger("anthropic").setLevel(logging.ERROR)
-        logging.getLogger("httpx").setLevel(logging.ERROR)
+        logging.getLogger("httpx2").setLevel(logging.ERROR)
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.effort = effort
+        self.fallbacks = fallbacks
 
     def query(self, session_messages):
         """
@@ -622,13 +641,29 @@ class Anthropic_LLM(LLM):
         request = dict(
             model=self.model,
             max_tokens=self.max_tokens,
-            temperature=self.temperature,
             messages=messages,
         )
         if system:
             request["system"] = system
+        if self.effort is not None:
+            request["output_config"] = {"effort": self.effort}
 
-        response = self.client.messages.create(**request)
+        if self.fallbacks is not None:
+            fallback_beta = (
+                "server-side-fallback-2026-07-01"
+                if isinstance(self.fallbacks, str)
+                else "server-side-fallback-2026-06-01"
+            )
+            response = self.client.beta.messages.create(
+                betas=[fallback_beta], fallbacks=self.fallbacks, **request
+            )
+        else:
+            response = self.client.messages.create(**request)
+
+        if response.stop_reason == "refusal":
+            # Declined (by the fallback chain too, if one was set):
+            # any partial output is not a usable answer.
+            return ""
         return "".join(block.text for block in response.content if block.type == "text")
 
     # ---------- pickling / deepcopy helpers ----------
@@ -640,6 +675,8 @@ class Anthropic_LLM(LLM):
 
     def __setstate__(self, state):
         """Restore from a pickled state."""
+        state.setdefault("effort", None)  # older pickles lack these
+        state.setdefault("fallbacks", None)
         self.__dict__.update(state)
         self.client = anthropic.Anthropic(**self._client_kwargs)
 
